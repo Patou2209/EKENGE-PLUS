@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import 'alarm_sound.dart';
 import 'backend.dart';
+import 'contacts_service.dart';
 import 'location_service.dart';
 
 /// Notification Push recue par l'utilisateur (§11).
@@ -289,13 +290,23 @@ class EkState extends ChangeNotifier {
   // =======================================================================
   // §4 / §15 Autorisations
   // =======================================================================
+  /// §4 Demande l'autorisation systeme d'acceder au repertoire du telephone.
+  /// La boite de dialogue native est affichee par le systeme d'exploitation.
   Future<bool> requestContactsPermission() async {
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-    contactsPermission = true;
+    final ok = await ContactsService.instance.requestPermission();
+    contactsPermission = ok;
     await _persist();
     notifyListeners();
-    return true;
+    return ok;
   }
+
+  /// true si l'utilisateur a refuse definitivement : il faut alors passer
+  /// par les reglages systeme de l'appareil.
+  Future<bool> contactsPermanentlyDenied() =>
+      ContactsService.instance.isPermanentlyDenied();
+
+  Future<void> openSystemSettings() =>
+      ContactsService.instance.openSettings();
 
   Future<bool> requestLocationPermission() async {
     final ok = await LocationService.instance.requestPermission();
@@ -305,7 +316,30 @@ class EkState extends ChangeNotifier {
     return ok;
   }
 
-  Future<List<PhoneBookEntry>> readPhoneBook() => _be.readPhoneBook();
+  /// §4 Lecture du repertoire reel de l'appareil, puis §5 detection des
+  /// numeros possedant deja un compte EKENGE PLUS.
+  ///
+  /// Aucun contact n'est simule : sur le web (ou l'API Contacts native n'est
+  /// pas disponible) la liste est simplement vide.
+  Future<List<PhoneBookEntry>> readPhoneBook() async {
+    final device = await ContactsService.instance.readDeviceContacts();
+
+    final out = <PhoneBookEntry>[];
+    for (final e in device) {
+      out.add(
+        PhoneBookEntry(
+          name: e.name,
+          phone: e.phone,
+          hasEkengeAccount: await _be.isEkengeNumber(e.phone),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// §5 Verifie si un numero possede deja un compte EKENGE PLUS.
+  Future<bool> isEkengeNumber(String phone) =>
+      _be.isEkengeNumber(Backend.normalizePhone(phone));
 
   // =======================================================================
   // §4 Listes de securite + §5 Synchronisation

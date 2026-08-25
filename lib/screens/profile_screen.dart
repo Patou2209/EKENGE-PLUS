@@ -12,6 +12,38 @@ import 'safe_settings_sheet.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  /// §4 Demande d'autorisation contacts. Si le systeme a definitivement
+  /// refuse, la seule issue est la page des reglages de l'application.
+  Future<void> _askContacts(BuildContext context) async {
+    final st = context.read<EkState>();
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await st.requestContactsPermission();
+    if (ok) return;
+    final permanent = await st.contactsPermanentlyDenied();
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: Ek.surfaceHigh,
+        duration: const Duration(seconds: 5),
+        content: Text(
+          permanent
+              ? 'Autorisation refusee definitivement. Activez la permission '
+                    'Contacts dans les reglages du systeme.'
+              : 'Autorisation refusee. Le repertoire du telephone reste '
+                    'inaccessible.',
+          style: Ek.body(size: 12.5, color: Ek.textPrimary),
+        ),
+        action: permanent
+            ? SnackBarAction(
+                label: 'REGLAGES',
+                textColor: Ek.accent,
+                onPressed: st.openSystemSettings,
+              )
+            : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final st = context.watch<EkState>();
@@ -135,8 +167,7 @@ class ProfileScreen extends StatelessWidget {
                                   icon: Icons.check,
                                 )
                               : TextButton(
-                                  onPressed: () =>
-                                      st.requestContactsPermission(),
+                                  onPressed: () => _askContacts(context),
                                   child: Text(
                                     'Autoriser',
                                     style: Ek.over(size: 9.5, color: Ek.accent),

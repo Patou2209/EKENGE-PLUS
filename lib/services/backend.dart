@@ -167,59 +167,8 @@ class Backend {
   // =======================================================================
 
   /// Verifie si un numero est associe a un compte EKENGE PLUS.
-  Future<bool> isEkengeNumber(String phone) async {
-    if (await accountExists(phone)) return true;
-    return _demoEkengeNumbers.contains(normalizePhone(phone));
-  }
-
-  /// Numeros de demonstration possedant deja un compte EKENGE PLUS.
-  static const Set<String> _demoEkengeNumbers = {
-    '+243810000001',
-    '+243810000002',
-    '+243810000004',
-    '+243810000007',
-    '+243810000009',
-    '+243810000012',
-  };
-
-  /// §4 Repertoire telephonique — retourne les contacts du telephone
-  /// apres autorisation d'acces. Le drapeau hasEkengeAccount alimente
-  /// la logique de synchronisation / invitation (§5).
-  Future<List<PhoneBookEntry>> readPhoneBook() async {
-    await Future<void>.delayed(const Duration(milliseconds: 850));
-    const names = <String, String>{
-      'Jean Mukendi': '+243810000001',
-      'Grace Ilunga': '+243810000002',
-      'Patrick Kabila': '+243810000003',
-      'Nadine Mbala': '+243810000004',
-      'Joseph Tshibangu': '+243810000005',
-      'Sarah Nsimba': '+243810000006',
-      'Emmanuel Lokwa': '+243810000007',
-      'Chantal Mwamba': '+243810000008',
-      'Didier Kalonji': '+243810000009',
-      'Esther Bope': '+243810000010',
-      'Michel Ngoy': '+243810000011',
-      'Prisca Kasongo': '+243810000012',
-      'Alain Bemba': '+243810000013',
-      'Rachel Tshiala': '+243810000014',
-      'Olivier Muteba': '+243810000015',
-      'Bijou Nkole': '+243810000016',
-      'Fabrice Sango': '+243810000017',
-      'Merveille Kanku': '+243810000018',
-    };
-    final out = <PhoneBookEntry>[];
-    for (final e in names.entries) {
-      out.add(
-        PhoneBookEntry(
-          name: e.key,
-          phone: e.value,
-          hasEkengeAccount: _demoEkengeNumbers.contains(e.value),
-        ),
-      );
-    }
-    out.sort((a, b) => a.name.compareTo(b.name));
-    return out;
-  }
+  /// §5 true si le numero possede deja un compte EKENGE PLUS.
+  Future<bool> isEkengeNumber(String phone) => accountExists(phone);
 
   // =======================================================================
   // §11 / §14 Sortie des notifications

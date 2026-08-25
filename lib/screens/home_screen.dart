@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/design.dart';
 import '../models/models.dart';
 import '../services/ek_state.dart';
+import '../services/haptics.dart';
 import '../services/location_service.dart';
 import '../widgets/common.dart';
 import '../widgets/ek_map.dart';
@@ -475,55 +476,128 @@ class _DangerButtonState extends State<_DangerButton>
     duration: const Duration(milliseconds: 2600),
   )..repeat(reverse: true);
 
+  /// Eclat blanc joue au moment exact du declenchement : preuve visuelle
+  /// immediate que l'appui a ete pris en compte.
+  late final AnimationController _flash = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 520),
+  );
+
+  // Paliers de vibration franchis pendant le maintien : l'utilisateur sent
+  // la progression au lieu d'attendre sans aucun retour.
+  int _lastStep = 0;
+
   @override
   void initState() {
     super.initState();
     _hold.addStatusListener((s) {
       if (s == AnimationStatus.completed) _fire();
     });
+    _hold.addListener(_onHoldProgress);
+  }
+
+  void _onHoldProgress() {
+    // 3 paliers pendant la montee : 33 %, 66 %, 100 %.
+    final step = (_hold.value * 3).floor();
+    if (step > _lastStep && step < 3) {
+      Haptics.tap();
+    }
+    _lastStep = step;
   }
 
   @override
   void dispose() {
+    _hold.removeListener(_onHoldProgress);
     _hold.dispose();
     _breathe.dispose();
+    _flash.dispose();
     super.dispose();
   }
 
   Future<void> _fire() async {
     _hold.reset();
+    _lastStep = 0;
     final st = context.read<EkState>();
+
     if (st.urgenceList.isEmpty) {
+      await Haptics.medium();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun contact dans la liste Urgence.')),
+        SnackBar(
+          backgroundColor: Ek.warn,
+          content: Text(
+            'Aucun contact dans la liste Urgence. Ajoutez vos proches '
+            'dans l\'onglet Reseaux.',
+            style: Ek.body(size: 13, color: const Color(0xFF1A1305)),
+          ),
+        ),
       );
       return;
     }
+
+    // §7 Vibration d'alerte : confirmation physique du declenchement.
+    Haptics.danger();
+    // Confirmation visuelle immediate.
+    _flash.forward(from: 0);
+
     await st.triggerDanger();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: Ek.danger,
+        duration: const Duration(seconds: 4),
         content: Text(
-          'Alerte Danger transmise a ${st.urgenceList.length} contact(s).',
+          'ALERTE TRANSMISE · ${st.urgenceList.length} contact(s) de la liste '
+          'Urgence notifies par Push et WhatsApp.',
           style: Ek.body(size: 13, color: Colors.white),
         ),
       ),
     );
   }
 
+  void _onDown() {
+    // Retour immediat des l'appui : l'utilisateur sait que le maintien
+    // est pris en compte.
+    Haptics.tap();
+    _hold.forward();
+  }
+
+  void _onUp() {
+    // Relachement avant la fin : on annule et on le signale.
+    if (_hold.isAnimating && _hold.value > 0.08) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1600),
+          backgroundColor: Ek.surfaceHigh,
+          content: Text(
+            'Maintenez le bouton jusqu\'au bout pour declencher l\'alerte.',
+            style: Ek.body(size: 12.5, color: Ek.textPrimary),
+          ),
+        ),
+      );
+    }
+    _lastStep = 0;
+    _hold.reverse();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => _hold.forward(),
-      onTapUp: (_) => _hold.reverse(),
-      onTapCancel: () => _hold.reverse(),
+      onTapDown: (_) => _onDown(),
+      onTapUp: (_) => _onUp(),
+      onTapCancel: _onUp,
       child: AnimatedBuilder(
-        animation: Listenable.merge([_hold, _breathe]),
+        animation: Listenable.merge([_hold, _breathe, _flash]),
         builder: (_, __) {
           final p = _hold.value;
           final breathe = widget.active ? 0.5 + _breathe.value * 0.5 : 0.0;
-          final scale = 1 - p * 0.04;
+          // Le flash s'ouvre vite puis retombe.
+          final f = _flash.value == 0
+              ? 0.0
+              : (1 - (_flash.value - 0.18).abs() / 0.82).clamp(0.0, 1.0);
+          final scale = 1 - p * 0.04 + f * 0.05;
+          final holding = p > 0.02;
           return Transform.scale(
             scale: scale,
             child: SizedBox(
@@ -587,18 +661,43 @@ class _DangerButtonState extends State<_DangerButton>
                         Icon(
                           widget.active
                               ? Icons.crisis_alert
+                              : holding
+                              ? Icons.touch_app
                               : Icons.shield_outlined,
                           size: 34,
                           color: Colors.white,
                         ),
                         const SizedBox(height: 8),
+                        // Pendant le maintien, la progression est chiffree :
+                        // le geste n'est plus silencieux.
                         Text(
-                          'DANGER',
+                          holding
+                              ? '${(p * 100).round()} %'
+                              : widget.active
+                              ? 'ACTIVE'
+                              : 'DANGER',
                           style: Ek.over(size: 12, color: Colors.white),
                         ),
                       ],
                     ),
                   ),
+
+                  // Eclat de confirmation au declenchement
+                  if (f > 0.01)
+                    IgnorePointer(
+                      child: Container(
+                        width: 196,
+                        height: 196,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: f * 0.30),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: f * 0.75),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

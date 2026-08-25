@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/design.dart';
 import '../models/models.dart';
 import '../services/ek_state.dart';
+import '../services/haptics.dart';
 import '../widgets/common.dart';
 import 'contact_picker_screen.dart';
 
@@ -24,23 +25,50 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
   int _stage = 0;
   bool _busy = false;
 
+  /// Etat reel de la demande d'autorisation systeme.
+  /// null = pas encore demandee, false = refusee, true = accordee.
+  bool? _granted;
+
+  /// true si l'utilisateur a coche "ne plus demander" : seule la page des
+  /// reglages systeme permet alors de rectifier.
+  bool _permanentlyDenied = false;
+
   @override
   void initState() {
     super.initState();
     final st = context.read<EkState>();
     if (st.contactsPermission) {
+      _granted = true;
       _stage = st.trackingList.isEmpty ? 1 : 2;
     }
   }
 
   Future<void> _askPermission() async {
+    Haptics.tap();
     setState(() => _busy = true);
-    final ok = await context.read<EkState>().requestContactsPermission();
+    final st = context.read<EkState>();
+    final ok = await st.requestContactsPermission();
+    final permanent = ok ? false : await st.contactsPermanentlyDenied();
     if (!mounted) return;
     setState(() {
       _busy = false;
+      _granted = ok;
+      _permanentlyDenied = permanent;
       if (ok) _stage = 1;
     });
+    if (ok) {
+      Haptics.confirm();
+    } else {
+      Haptics.medium();
+    }
+  }
+
+  /// L'autorisation n'est pas indispensable pour creer les listes : les
+  /// numeros peuvent etre saisis manuellement (§4 impose des listes non
+  /// vides, pas l'acces au repertoire).
+  void _continueWithoutDirectory() {
+    Haptics.tap();
+    setState(() => _stage = 1);
   }
 
   Future<void> _pick(SafetyList list) async {
@@ -70,7 +98,14 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_stage == 0)
-                      _PermissionStage(busy: _busy, onGrant: _askPermission)
+                      _PermissionStage(
+                        busy: _busy,
+                        granted: _granted,
+                        permanentlyDenied: _permanentlyDenied,
+                        onGrant: _askPermission,
+                        onOpenSettings: () => st.openSystemSettings(),
+                        onSkip: _continueWithoutDirectory,
+                      )
                     else ...[
                       // ---- Liste Tracking (§4.1) ----
                       _ListBlock(
@@ -148,11 +183,25 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
 
 class _PermissionStage extends StatelessWidget {
   final bool busy;
+  final bool? granted;
+  final bool permanentlyDenied;
   final VoidCallback onGrant;
-  const _PermissionStage({required this.busy, required this.onGrant});
+  final VoidCallback onOpenSettings;
+  final VoidCallback onSkip;
+
+  const _PermissionStage({
+    required this.busy,
+    required this.granted,
+    required this.permanentlyDenied,
+    required this.onGrant,
+    required this.onOpenSettings,
+    required this.onSkip,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final denied = granted == false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -164,12 +213,14 @@ class _PermissionStage extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Ek.surface,
-              border: Border.all(color: Ek.hairline),
+              border: Border.all(
+                color: denied ? Ek.warn.withValues(alpha: 0.45) : Ek.hairline,
+              ),
             ),
-            child: const Icon(
-              Icons.contacts_outlined,
+            child: Icon(
+              denied ? Icons.contacts_outlined : Icons.contacts_outlined,
               size: 32,
-              color: Ek.accent,
+              color: denied ? Ek.warn : Ek.accent,
             ),
           ),
         ),
@@ -177,9 +228,9 @@ class _PermissionStage extends StatelessWidget {
         Text('Acces au repertoire', style: Ek.title(size: 19)),
         const SizedBox(height: 10),
         Text(
-          'EKENGE PLUS demande l\'autorisation d\'acceder aux contacts de votre '
-          'telephone afin de faciliter la selection de vos proches lors de la '
-          'creation de vos listes de securite.',
+          'EKENGE PLUS demande au systeme l\'autorisation d\'acceder aux '
+          'contacts de votre telephone. Une fois accordee, votre repertoire '
+          'reel est ouvert pour selectionner vos proches.',
           style: Ek.body(size: 13.5, height: 1.55),
         ),
         const SizedBox(height: 22),
@@ -205,13 +256,73 @@ class _PermissionStage extends StatelessWidget {
             ],
           ),
         ),
+
+        // ---- Retour reel du systeme en cas de refus ----
+        if (denied) ...[
+          const SizedBox(height: 18),
+          EkCard(
+            padding: const EdgeInsets.all(16),
+            border: Ek.warn.withValues(alpha: 0.35),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.report_gmailerrorred_outlined,
+                      size: 17,
+                      color: Ek.warn,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Autorisation refusee',
+                      style: Ek.over(size: 10, color: Ek.warn),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  permanentlyDenied
+                      ? 'Le systeme ne peut plus afficher la demande. Ouvrez '
+                            'les reglages de l\'application, activez la '
+                            'permission Contacts, puis revenez ici.'
+                      : 'Sans cette autorisation le repertoire du telephone '
+                            'reste inaccessible. Vous pouvez reessayer ou '
+                            'saisir les numeros manuellement.',
+                  style: Ek.body(size: 12.5, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         const SizedBox(height: 26),
-        EkButton(
-          label: 'Autoriser l\'acces',
-          icon: Icons.check,
-          loading: busy,
-          onPressed: onGrant,
-        ),
+        if (permanentlyDenied)
+          EkButton(
+            label: 'Ouvrir les reglages',
+            icon: Icons.settings_outlined,
+            onPressed: onOpenSettings,
+          )
+        else
+          EkButton(
+            label: denied ? 'Reessayer l\'autorisation' : 'Autoriser l\'acces',
+            icon: denied ? Icons.refresh : Icons.check,
+            loading: busy,
+            onPressed: onGrant,
+          ),
+
+        if (denied) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                'Saisir les numeros manuellement',
+                style: Ek.over(size: 10, color: Ek.textSecondary),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

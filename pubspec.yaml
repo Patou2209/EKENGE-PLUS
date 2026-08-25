@@ -19,6 +19,11 @@ dependencies:
   url_launcher: ^6.3.1
   google_fonts: ^6.2.1
   web: ^1.1.1
+  # §4 : acces au vrai repertoire du telephone + demande d'autorisation
+  flutter_contacts: ^1.1.9+2
+  permission_handler: ^11.3.1
+  # Retour haptique du bouton Danger (§7)
+  vibration: ^2.0.0
 
 dev_dependencies:
   flutter_test:
