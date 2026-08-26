@@ -6,6 +6,7 @@ import '../core/design.dart';
 import '../services/backend.dart';
 import '../services/ek_state.dart';
 import '../widgets/common.dart';
+import 'guest_tracking_screen.dart';
 
 // =========================================================================
 // Ecran d'accueil : connexion ou creation de compte
@@ -66,7 +67,25 @@ class WelcomeScreen extends StatelessWidget {
                   context,
                 ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 14),
+              // §11 : fonction Tracking sans creation de compte (visiteur).
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const GuestTrackingScreen(),
+                  ),
+                ),
+                icon: const Icon(
+                  Icons.share_location_outlined,
+                  size: 17,
+                  color: Ek.accent,
+                ),
+                label: Text(
+                  'Partager ma localisation sans compte',
+                  style: Ek.body(size: 13, color: Ek.accent),
+                ),
+              ),
+              const SizedBox(height: 14),
             ],
           ),
         ),
