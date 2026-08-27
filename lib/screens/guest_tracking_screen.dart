@@ -700,10 +700,14 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                             children: [
                               Text(
                                 c.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: Ek.body(size: 14, color: Ek.textPrimary),
                               ),
                               Text(
                                 c.phone,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: Ek.body(
                                   size: 12,
                                   color: Ek.textTertiary,
@@ -712,31 +716,11 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                             ],
                           ),
                         ),
-                        if (sent)
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle,
-                                size: 16,
-                                color: Ek.safe,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Envoye',
-                                style: Ek.body(size: 12, color: Ek.safe),
-                              ),
-                            ],
-                          )
-                        else
-                          SizedBox(
-                            height: 36,
-                            child: EkButton(
-                              label: 'WhatsApp',
-                              icon: Icons.send,
-                              height: 36,
-                              onPressed: () => _sendWhatsApp(c),
-                            ),
-                          ),
+                        const SizedBox(width: 10),
+                        // Bouton compact a largeur FIXE : EkButton occupe
+                        // toute la largeur disponible et ecrasait la colonne
+                        // du nom dans la Row (affichage vertical du texte).
+                        _SendChip(sent: sent, onTap: () => _sendWhatsApp(c)),
                       ],
                     ),
                   ),
@@ -747,16 +731,42 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
-          child: EkButton(
-            label: allSent
-                ? 'Demarrer le partage en direct'
-                : 'Envoyez le lien a chaque contact',
-            icon: Icons.share_location,
-            onPressed: allSent ? _startLive : null,
+          child: Column(
+            children: [
+              if (!allSent) ...[
+                EkButton(
+                  label: _sent.isEmpty
+                      ? 'Envoyer a tous via WhatsApp'
+                      : 'Envoyer au suivant '
+                            '(${_sent.length}/${chosen.length})',
+                  icon: Icons.send,
+                  onPressed: () => _sendNext(chosen),
+                ),
+                const SizedBox(height: 10),
+              ],
+              EkButton(
+                label: 'Demarrer le partage en direct',
+                icon: Icons.share_location,
+                outlined: !allSent,
+                color: allSent ? Ek.accent : Ek.textSecondary,
+                // Le partage peut demarrer meme si tous les envois ne sont
+                // pas encore faits : l'utilisateur reste maitre du flux.
+                onPressed: _startLive,
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  /// Envoie le message WhatsApp au prochain contact non encore servi.
+  /// WhatsApp ne permet qu'une conversation a la fois : on enchaîne donc
+  /// contact par contact a chaque pression.
+  Future<void> _sendNext(List<PhoneBookEntry> chosen) async {
+    final next = chosen.where((c) => !_sent.contains(c.phone)).toList();
+    if (next.isEmpty) return;
+    await _sendWhatsApp(next.first);
   }
 
   // --- Etape 5 : partage en direct -------------------------------------------
@@ -891,6 +901,50 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Bouton compact a LARGEUR FIXE pour l'envoi WhatsApp d'une ligne contact.
+/// (EkButton s'etend sur toute la largeur : inutilisable dans une Row.)
+class _SendChip extends StatelessWidget {
+  final bool sent;
+  final VoidCallback onTap;
+  const _SendChip({required this.sent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (sent) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Ek.safe),
+          const SizedBox(width: 6),
+          Text('Envoye', style: Ek.body(size: 12, color: Ek.safe)),
+        ],
+      );
+    }
+    return Material(
+      color: Ek.accent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.send, size: 14, color: Color(0xFF04120F)),
+              const SizedBox(width: 6),
+              Text(
+                'WHATSAPP',
+                style: Ek.over(size: 10.5, color: const Color(0xFF04120F)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
