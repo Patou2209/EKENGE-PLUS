@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/design.dart';
@@ -37,7 +39,18 @@ class GuestTrackingScreen extends StatefulWidget {
 enum _GuestStep { warning, name, contacts, share, live }
 
 class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
+  static const String _kSessionKey = 'guest_session_v1';
+
   _GuestStep _step = _GuestStep.warning;
+
+  /// true pendant la restauration eventuelle d'une session precedente.
+  bool _restoring = true;
+
+  /// Contacts qui suivent la localisation du visiteur (session active).
+  final List<PhoneBookEntry> _followers = [];
+
+  /// true si la transmission de position est en cours.
+  bool _sharing = false;
 
   // --- Etape 2 : nom du visiteur -----------------------------------------
   final TextEditingController _nameCtrl = TextEditingController();
@@ -56,7 +69,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   final Set<String> _sent = {};
 
   // --- Etape 5 : suivi en direct -------------------------------------------
-  late final String _trackingToken;
+  late String _trackingToken;
   StreamSubscription<GeoPoint>? _sub;
   GeoPoint? _position;
   final List<GeoPoint> _trail = [];
@@ -72,6 +85,70 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
       10,
       (_) => 'abcdefghjkmnpqrstuvwxyz23456789'[rnd.nextInt(31)],
     ).join();
+    _restoreSession();
+  }
+
+  // ==========================================================================
+  // Persistance de la session visiteur : le partage survit a la fermeture
+  // de l'ecran. Le visiteur peut revenir pour arreter, redemarrer et voir
+  // qui le suit.
+  // ==========================================================================
+  Future<void> _restoreSession() async {
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getString(_kSessionKey);
+    if (raw == null) {
+      if (mounted) setState(() => _restoring = false);
+      return;
+    }
+    try {
+      final doc = jsonDecode(raw) as Map<String, dynamic>;
+      _nameCtrl.text = (doc['name'] as String?) ?? '';
+      _trackingToken = (doc['token'] as String?) ?? _trackingToken;
+      final at = doc['started_at'] as int?;
+      _startedAt = at == null ? null : DateTime.fromMillisecondsSinceEpoch(at);
+      _followers
+        ..clear()
+        ..addAll(
+          ((doc['followers'] as List?) ?? const []).map(
+            (e) => PhoneBookEntry(
+              name: (e as Map)['name'] as String,
+              phone: e['phone'] as String,
+              hasEkengeAccount: false,
+            ),
+          ),
+        );
+      final wasSharing = (doc['sharing'] as bool?) ?? false;
+      if (!mounted) return;
+      setState(() {
+        _step = _GuestStep.live;
+        _restoring = false;
+      });
+      if (wasSharing) await _resumeSharing();
+    } catch (_) {
+      await p.remove(_kSessionKey);
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
+  Future<void> _saveSession() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _kSessionKey,
+      jsonEncode({
+        'name': _guestName,
+        'token': _trackingToken,
+        'sharing': _sharing,
+        'started_at': _startedAt?.millisecondsSinceEpoch,
+        'followers': _followers
+            .map((f) => {'name': f.name, 'phone': f.phone})
+            .toList(),
+      }),
+    );
+  }
+
+  Future<void> _clearSession() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_kSessionKey);
   }
 
   @override
@@ -166,13 +243,30 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   }
 
   // ==========================================================================
-  // Etape 5 : demarrage du partage en direct
+  // Etape 5 : partage en direct — demarrer / arreter / voir qui suit
   // ==========================================================================
+
+  /// Premiere entree dans l'ecran live : enregistre les contacts choisis
+  /// comme suiveurs de la session, puis lance la transmission.
   Future<void> _startLive() async {
     Haptics.confirm();
+    final chosen = [
+      ..._manual,
+      ..._all,
+    ].where((e) => _selected.contains(e.phone)).toList();
+    _followers
+      ..clear()
+      ..addAll(chosen);
+    setState(() => _step = _GuestStep.live);
+    await _resumeSharing();
+  }
+
+  /// Demarre (ou redemarre) la transmission de la position.
+  Future<void> _resumeSharing() async {
     final loc = LocationService.instance;
     await loc.requestPermission();
     loc.start();
+    await _sub?.cancel();
     _sub = loc.stream.listen((p) {
       if (!mounted) return;
       setState(() {
@@ -181,17 +275,70 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
         if (_trail.length > 240) _trail.removeAt(0);
       });
     });
+    if (!mounted) return;
     setState(() {
-      _startedAt = DateTime.now();
-      _step = _GuestStep.live;
+      _sharing = true;
+      _startedAt ??= DateTime.now();
     });
+    await _saveSession();
   }
 
-  void _stopLive() {
+  /// Met le partage en pause : les suiveurs restent, la session persiste,
+  /// le visiteur peut redemarrer quand il veut.
+  Future<void> _pauseSharing() async {
     Haptics.medium();
-    _sub?.cancel();
+    await _sub?.cancel();
+    _sub = null;
     LocationService.instance.stop();
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    setState(() => _sharing = false);
+    await _saveSession();
+  }
+
+  /// Retire un suiveur : il n'aura plus acces a la localisation.
+  Future<void> _removeFollower(PhoneBookEntry f) async {
+    Haptics.tap();
+    setState(() => _followers.removeWhere((e) => e.phone == f.phone));
+    await _saveSession();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${f.name} ne suit plus votre localisation.',
+          style: Ek.body(size: 13),
+        ),
+      ),
+    );
+  }
+
+  /// Termine definitivement la session visiteur.
+  Future<void> _endSession() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Terminer la session ?', style: Ek.title(size: 17)),
+        content: Text(
+          'Le partage sera arrete et la liste de vos suiveurs sera effacee.',
+          style: Ek.body(size: 13, color: Ek.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Annuler', style: Ek.body(color: Ek.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Terminer', style: Ek.body(color: Ek.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    Haptics.medium();
+    await _sub?.cancel();
+    LocationService.instance.stop();
+    await _clearSession();
+    if (mounted) Navigator.of(context).pop();
   }
 
   // ==========================================================================
@@ -199,6 +346,16 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   // ==========================================================================
   @override
   Widget build(BuildContext context) {
+    if (_restoring) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation(Ek.accent),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: switch (_step) {
@@ -789,9 +946,11 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
     return Column(
       children: [
         _header(
-          'Partage en direct',
-          'Mode visiteur · ${_selected.length} contact(s) informes',
-          onBack: _stopLive,
+          _sharing ? 'Partage en direct' : 'Partage en pause',
+          'Mode visiteur · ${_followers.length} suiveur(s)',
+          // Quitter l'ecran ne termine PAS la session : elle est
+          // persistee et restauree a la prochaine ouverture.
+          onBack: () => Navigator.of(context).pop(),
         ),
         Expanded(
           child: ListView(
@@ -824,13 +983,16 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Ek.safe,
+                            color: _sharing ? Ek.safe : Ek.warn,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text('Partage actif', style: Ek.over(size: 11)),
+                        Text(
+                          _sharing ? 'Partage actif' : 'Partage en pause',
+                          style: Ek.over(size: 11),
+                        ),
                         const Spacer(),
                         if (_startedAt != null)
                           Text(
@@ -850,6 +1012,96 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              // --- Qui me suit -------------------------------------------
+              EkSectionLabel('Qui me suit · ${_followers.length}'),
+              const SizedBox(height: 8),
+              if (_followers.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Ek.surface,
+                    borderRadius: BorderRadius.circular(Ek.r16),
+                    border: Border.all(color: Ek.hairlineSoft),
+                  ),
+                  child: Text(
+                    'Plus personne ne suit votre localisation.',
+                    style: Ek.body(size: 13, color: Ek.textTertiary),
+                  ),
+                )
+              else
+                ..._followers.map(
+                  (f) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Ek.surface,
+                        borderRadius: BorderRadius.circular(Ek.r16),
+                        border: Border.all(color: Ek.hairlineSoft),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Ek.surfaceHigh,
+                            child: Text(
+                              f.name.isNotEmpty ? f.name[0].toUpperCase() : '?',
+                              style: Ek.body(size: 13, color: Ek.textPrimary),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  f.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Ek.body(
+                                    size: 14,
+                                    color: Ek.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  f.phone,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Ek.body(
+                                    size: 12,
+                                    color: Ek.textTertiary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_sharing)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 6),
+                              child: Icon(
+                                Icons.remove_red_eye_outlined,
+                                size: 16,
+                                color: Ek.safe,
+                              ),
+                            ),
+                          IconButton(
+                            tooltip: 'Retirer ce suiveur',
+                            onPressed: () => _removeFollower(f),
+                            icon: const Icon(
+                              Icons.person_remove_outlined,
+                              size: 19,
+                              color: Ek.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -878,11 +1130,14 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                 icon: Icons.person_add_alt,
                 outlined: true,
                 color: Ek.accent,
-                onPressed: () {
+                onPressed: () async {
                   Haptics.tap();
-                  _sub?.cancel();
+                  final nav = Navigator.of(context);
+                  await _sub?.cancel();
                   LocationService.instance.stop();
-                  Navigator.of(context).pushReplacement(
+                  await _clearSession();
+                  if (!mounted) return;
+                  nav.pushReplacement(
                     MaterialPageRoute(builder: (_) => const PhoneStepScreen()),
                   );
                 },
@@ -892,12 +1147,27 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
-          child: EkButton(
-            label: 'Arreter le partage',
-            icon: Icons.stop_circle_outlined,
-            color: Ek.danger,
-            textColor: Colors.white,
-            onPressed: _stopLive,
+          child: Column(
+            children: [
+              // Demarrer / arreter la transmission a volonte.
+              EkButton(
+                label: _sharing ? 'Arreter le partage' : 'Demarrer le partage',
+                icon: _sharing
+                    ? Icons.pause_circle_outline
+                    : Icons.play_circle_outline,
+                color: _sharing ? Ek.danger : Ek.accent,
+                textColor: _sharing ? Colors.white : const Color(0xFF04120F),
+                onPressed: _sharing ? _pauseSharing : _resumeSharing,
+              ),
+              const SizedBox(height: 10),
+              EkButton(
+                label: 'Terminer la session visiteur',
+                icon: Icons.logout,
+                outlined: true,
+                color: Ek.textSecondary,
+                onPressed: _endSession,
+              ),
+            ],
           ),
         ),
       ],
