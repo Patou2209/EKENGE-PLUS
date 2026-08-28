@@ -53,3 +53,8 @@ android/key.properties
 android/app/google-services.json
 **/firebase-admin-sdk*.json
 *.bak
+
+# Cloud Functions
+functions/node_modules/
+firebase-debug.log
+.firebase/

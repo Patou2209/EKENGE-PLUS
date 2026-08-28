@@ -315,7 +315,43 @@ class FirebaseBackend {
   }
 
   // =========================================================================
-  // FCM — jeton de notification push (§13)
+  // §9 Escalade serveur — etat de securite (interrupteur homme-mort)
+  // =========================================================================
+
+  /// Publie l'etat Safe de l'utilisateur : le serveur (Cloud Function
+  /// escalationTick) surveille ce document et declenche N1/N2 meme si le
+  /// telephone est eteint ou detruit.
+  Future<void> saveSafetyStatus({
+    required String phone,
+    required bool trackingActive,
+    required bool safeEnabled,
+    DateTime? nextCheckAt,
+    required String state, // ok | level1 | level2
+    DateTime? level1At,
+    GeoPoint? lastPosition,
+  }) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('safety_status').doc(phone).set({
+        'phone': phone,
+        'tracking_active': trackingActive,
+        'safe_enabled': safeEnabled,
+        'next_check_at': nextCheckAt?.millisecondsSinceEpoch,
+        'state': state,
+        'level1_at': level1At?.millisecondsSinceEpoch,
+        'last_lat': lastPosition?.lat,
+        'last_lng': lastPosition?.lng,
+        'confirm_grace_ms': 120000,
+        'level2_delay_ms': 900000,
+        'updated_at': fs.FieldValue.serverTimestamp(),
+      }, fs.SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) debugPrint('saveSafetyStatus: $e');
+    }
+  }
+
+  // =========================================================================
+  // FCM — jeton et reception des notifications push (§13)
   // =========================================================================
 
   Future<String?> fcmToken() async {
@@ -326,5 +362,35 @@ class FirebaseBackend {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Rafraichit le jeton FCM de l'utilisateur dans Firestore (au demarrage).
+  Future<void> refreshFcmToken(String phone) async {
+    if (!_initialized || kIsWeb) return;
+    try {
+      final t = await fcmToken();
+      if (t == null) return;
+      await _db.collection('users').doc(phone).set({
+        'fcm_token': t,
+      }, fs.SetOptions(merge: true));
+      FirebaseMessaging.instance.onTokenRefresh.listen((nt) {
+        _db.collection('users').doc(phone).set({
+          'fcm_token': nt,
+        }, fs.SetOptions(merge: true));
+      });
+    } catch (_) {}
+  }
+
+  /// Ecoute les notifications FCM recues app ouverte (premier plan).
+  void onForegroundMessage(void Function(String title, String body) handler) {
+    if (!_initialized || kIsWeb) return;
+    try {
+      FirebaseMessaging.onMessage.listen((m) {
+        final n = m.notification;
+        if (n != null) {
+          handler(n.title ?? 'EKENGE PLUS', n.body ?? '');
+        }
+      });
+    } catch (_) {}
   }
 }

@@ -149,8 +149,29 @@ class EkState extends ChangeNotifier {
       user = await _be.loadUser(phone);
       if (user != null) await _restore();
     }
+    if (user != null) {
+      // §13 : jeton FCM a jour pour recevoir les alertes des proches,
+      // et reception des notifications quand l'app est au premier plan.
+      await _fb.refreshFcmToken(user!.phone);
+      _fb.onForegroundMessage((title, body) {
+        _pushToSelf(title, body, _severityFromTitle(title));
+        AlarmSound.instance.chirp();
+        notifyListeners();
+      });
+    }
     bootstrapped = true;
     notifyListeners();
+  }
+
+  static AlertKind _severityFromTitle(String title) {
+    final t = title.toUpperCase();
+    if (t.contains('CRITIQUE') || t.contains('DANGER')) {
+      return AlertKind.danger;
+    }
+    if (t.contains('NIVEAU 1') || t.contains('PREVENTIVE')) {
+      return AlertKind.safeLevel1;
+    }
+    return AlertKind.none;
   }
 
   Future<void> _restore() async {
@@ -211,6 +232,28 @@ class EkState extends ChangeNotifier {
       'outbox': outbox.take(300).map((e) => e.toJson()).toList(),
       'inbox': inbox.take(200).map((e) => e.toJson()).toList(),
     });
+    _syncSafetyStatus();
+  }
+
+  /// §9 : publie l'etat Safe vers Firestore. La Cloud Function
+  /// `escalationTick` surveille ce document et declenche l'escalade
+  /// N1/N2 cote serveur — meme si le telephone est eteint ou detruit.
+  void _syncSafetyStatus() {
+    if (user == null) return;
+    final String state = switch (activeAlert?.kind) {
+      AlertKind.safeLevel1 => 'level1',
+      AlertKind.safeLevel2 => 'level2',
+      _ => level1At != null ? 'level1' : 'ok',
+    };
+    _fb.saveSafetyStatus(
+      phone: user!.phone,
+      trackingActive: trackingActive,
+      safeEnabled: safeEnabled,
+      nextCheckAt: safeCheckPending ? safeCheckRaisedAt : nextSafeCheck,
+      state: state,
+      level1At: level1At,
+      lastPosition: position,
+    );
   }
 
   // =======================================================================
@@ -271,6 +314,7 @@ class EkState extends ChangeNotifier {
     );
     // Synchronisation Firestore : le compte est visible par les proches.
     await _fb.saveUser(user!);
+    await _fb.refreshFcmToken(phone);
     await _be.setSession(phone);
     listsConfigured = false;
     contacts.clear();
@@ -293,6 +337,8 @@ class EkState extends ChangeNotifier {
     user = u;
     await _be.setSession(phone);
     await _restore();
+    // §13 : jeton FCM a jour pour recevoir les alertes des proches.
+    await _fb.refreshFcmToken(phone);
     _log(EkEventType.login, 'Connexion', 'Session ouverte · $phone');
     await _persist();
     notifyListeners();
