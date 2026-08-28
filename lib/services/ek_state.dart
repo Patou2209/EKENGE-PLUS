@@ -286,53 +286,64 @@ class EkState extends ChangeNotifier {
   // §3 Authentification
   // =======================================================================
 
-  /// true si le dernier OTP est parti par VRAI SMS (Firebase Phone Auth).
-  bool otpViaRealSms = false;
+  /// Erreur du dernier envoi de SMS OTP (affichee a l'ecran). Null si RAS.
+  String? otpError;
 
-  /// Raison exacte du repli en mode simule (diagnostic affiche a l'ecran).
-  String? otpFallbackReason;
-
-  /// Envoie l'OTP. Priorite au vrai SMS via Firebase Auth ; en cas
-  /// d'indisponibilite, repli sur le code local affiche a l'ecran.
-  /// Retourne le code de demonstration, ou '' si un vrai SMS est parti.
-  Future<String> sendOtp(String phone) async {
-    otpFallbackReason = null;
-    if (_fb.isReady) {
-      String? err;
-      final sent = await _fb.sendRealOtp(phone, onError: (e) => err = e);
-      if (sent) {
-        otpViaRealSms = true;
-        _log(
-          EkEventType.otpSent,
-          'SMS envoye',
-          'Code OTP envoye par SMS a $phone (Firebase Auth)',
-        );
-        return '';
-      }
-      otpFallbackReason = err ?? 'Aucune reponse de Firebase Auth (delai)';
-      _log(
-        EkEventType.otpSent,
-        'SMS reel indisponible',
-        'Repli en mode simule · ${otpFallbackReason!}',
-      );
-      if (kDebugMode) debugPrint('OTP SMS indisponible: $err — repli local');
-    } else {
-      otpFallbackReason = 'Firebase non initialise sur cet appareil';
+  /// Envoie l'OTP par VRAI SMS via Firebase Phone Auth — AUCUN mode simule.
+  ///
+  /// L'envoi est engage en arriere-plan : l'ecran de saisie s'ouvre
+  /// immediatement. Meme si Firebase repond lentement (Play Integrity,
+  /// reseau) et que le SMS arrive en retard, [verifyOtp] accepte le code
+  /// reel des sa reception — c'est la correction de la course qui rejetait
+  /// les SMS tardifs.
+  Future<void> sendOtp(String phone) async {
+    otpError = null;
+    notifyListeners();
+    if (!_fb.isReady) {
+      otpError =
+          'Firebase non initialise sur cet appareil. '
+          'Verifiez votre connexion internet puis reessayez.';
+      notifyListeners();
+      return;
     }
-    otpViaRealSms = false;
-    return _be.sendOtp(phone);
+    _log(
+      EkEventType.otpSent,
+      'SMS en cours d\'envoi',
+      'Envoi du code OTP par SMS a $phone (Firebase Auth)',
+    );
+    // Pas d'attente bloquante : la confirmation (codeSent) peut prendre du
+    // temps. Le code recu reste verifiable a tout moment via Firebase.
+    unawaited(
+      _fb
+          .sendRealOtp(
+            phone,
+            onError: (e) {
+              otpError = e;
+              notifyListeners();
+            },
+          )
+          .then((sent) {
+            if (sent && otpError == null) {
+              _log(
+                EkEventType.otpSent,
+                'SMS envoye',
+                'Code OTP envoye par SMS a $phone (Firebase Auth)',
+              );
+            }
+          }),
+    );
   }
 
+  /// Verifie le code recu par SMS aupres de Firebase Auth — unique source
+  /// de verite. Fonctionne aussi pour un SMS arrive en retard : la
+  /// confirmation d'envoi tardive est attendue cote Firebase.
   Future<bool> verifyOtp(String phone, String code) async {
-    final ok = otpViaRealSms
-        ? await _fb.verifyRealOtp(code)
-        : await _be.verifyOtp(phone, code);
+    final ok = await _fb.verifyRealOtp(code);
     if (ok) {
       _log(
         EkEventType.otpVerified,
         'Numero verifie',
-        'Code OTP valide pour $phone'
-            '${otpViaRealSms ? ' (SMS Firebase)' : ''}',
+        'Code OTP valide pour $phone (SMS Firebase)',
       );
     }
     return ok;

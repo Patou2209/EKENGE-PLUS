@@ -54,29 +54,9 @@ class Backend {
   }
 
   // =======================================================================
-  // §3 Authentification : OTP SMS puis mot de passe
+  // §3 Authentification — comptes locaux (l'OTP passe EXCLUSIVEMENT par
+  // Firebase Phone Auth : voir FirebaseBackend.sendRealOtp/verifyRealOtp)
   // =======================================================================
-
-  /// Envoi du code OTP par SMS (Firebase Auth / verifyPhoneNumber).
-  /// Le code est retourne pour la demonstration en preview.
-  Future<String> sendOtp(String phone) async {
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    final code = (100000 + _rnd.nextInt(900000)).toString();
-    final p = await _p;
-    await p.setString('otp_$phone', code);
-    await p.setInt('otp_at_$phone', DateTime.now().millisecondsSinceEpoch);
-    return code;
-  }
-
-  /// Verification du code recu par SMS. Validite : 5 minutes.
-  Future<bool> verifyOtp(String phone, String code) async {
-    await Future<void>.delayed(const Duration(milliseconds: 550));
-    final p = await _p;
-    final expected = p.getString('otp_$phone');
-    final at = p.getInt('otp_at_$phone') ?? 0;
-    final fresh = DateTime.now().millisecondsSinceEpoch - at < 5 * 60 * 1000;
-    return expected != null && expected == code.trim() && fresh;
-  }
 
   Future<bool> accountExists(String phone) async {
     final p = await _p;

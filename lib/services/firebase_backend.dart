@@ -16,8 +16,8 @@ import '../models/models.dart';
 /// - Cloud Firestore : users, contacts, positions, alerts, events, messages
 /// - Firebase Cloud Messaging : jeton d'appareil pour notifications push
 ///
-/// En cas d'indisponibilite (preview web sans reseau, quota SMS...), les
-/// appelants retombent sur le backend local — l'app reste utilisable.
+/// L'OTP passe EXCLUSIVEMENT par Firebase Phone Auth (vrai SMS) : aucun
+/// mode simule. Les donnees (Firestore) gardent un cache local en secours.
 class FirebaseBackend {
   FirebaseBackend._();
   static final FirebaseBackend instance = FirebaseBackend._();
@@ -78,6 +78,10 @@ class FirebaseBackend {
   /// true si Android a valide automatiquement le SMS (connexion deja faite).
   bool autoVerified = false;
 
+  /// Attente de la confirmation d'envoi (codeSent). Permet a verifyRealOtp
+  /// d'accepter un code reel meme si Firebase confirme l'envoi en retard.
+  Completer<void>? _verificationReady;
+
   /// Envoie un vrai SMS OTP au numero fourni (format E.164 : +243...).
   /// Retourne true si l'envoi est engage, false si Firebase indisponible.
   ///
@@ -94,6 +98,8 @@ class FirebaseBackend {
     try {
       final completer = Completer<bool>();
       autoVerified = false;
+      _verificationId = null;
+      _verificationReady = Completer<void>();
       await _auth.verifyPhoneNumber(
         phoneNumber: phone,
         // 120 s : laisse le temps a Play Integrity de repondre (ImmoZone).
@@ -104,22 +110,28 @@ class FirebaseBackend {
           try {
             await _auth.signInWithCredential(cred);
             autoVerified = true;
+            _signalVerificationReady();
             onAutoVerified?.call();
             if (!completer.isCompleted) completer.complete(true);
           } catch (_) {}
         },
         verificationFailed: (fa.FirebaseAuthException e) {
+          _signalVerificationReady();
           onError(_frenchAuthError(e));
           if (!completer.isCompleted) completer.complete(false);
         },
         codeSent: (String verificationId, int? resendToken) {
+          // Peut arriver TARDIVEMENT (Play Integrity lent) : on memorise
+          // toujours l'identifiant pour que le vrai code reste verifiable.
           _verificationId = verificationId;
           _resendToken = resendToken;
+          _signalVerificationReady();
           onCodeSent?.call();
           if (!completer.isCompleted) completer.complete(true);
         },
         codeAutoRetrievalTimeout: (String verificationId) {
           _verificationId = verificationId;
+          _signalVerificationReady();
           if (!completer.isCompleted) completer.complete(true);
         },
       );
@@ -134,13 +146,33 @@ class FirebaseBackend {
     }
   }
 
-  /// Verifie le code OTP recu par SMS.
+  void _signalVerificationReady() {
+    final c = _verificationReady;
+    if (c != null && !c.isCompleted) c.complete();
+  }
+
+  /// Verifie le code OTP recu par SMS aupres de Firebase Auth.
+  ///
+  /// CORRECTION DE LA COURSE « SMS tardif » : si l'utilisateur saisit le
+  /// code alors que Firebase n'a pas encore confirme l'envoi (codeSent en
+  /// retard a cause de Play Integrity/reseau), on ATTEND la confirmation
+  /// jusqu'a 45 s au lieu de rejeter le code immediatement.
   Future<bool> verifyRealOtp(String code) async {
     if (!_initialized) return false;
     // Android a deja valide le SMS automatiquement : l'utilisateur est
     // connecte, le code saisi n'a plus besoin d'etre verifie.
     if (autoVerified && _auth.currentUser != null) return true;
-    if (_verificationId == null) return false;
+    if (_verificationId == null) {
+      final ready = _verificationReady;
+      if (ready == null) return false;
+      try {
+        await ready.future.timeout(const Duration(seconds: 45));
+      } catch (_) {
+        return false;
+      }
+      if (autoVerified && _auth.currentUser != null) return true;
+      if (_verificationId == null) return false;
+    }
     try {
       final cred = fa.PhoneAuthProvider.credential(
         verificationId: _verificationId!,

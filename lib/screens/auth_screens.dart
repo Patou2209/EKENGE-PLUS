@@ -179,7 +179,7 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
       _busy = true;
       _err = null;
     });
-    final code = await st.sendOtp(phone);
+    await st.sendOtp(phone);
     if (!mounted) return;
     setState(() => _busy = false);
     Navigator.of(context).push(
@@ -188,7 +188,6 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
           phone: phone,
           firstName: _first.text.trim(),
           lastName: _last.text.trim(),
-          demoCode: code,
         ),
       ),
     );
@@ -270,7 +269,6 @@ class OtpStepScreen extends StatefulWidget {
   final String phone;
   final String firstName;
   final String lastName;
-  final String demoCode;
 
   /// Mode reinitialisation du mot de passe.
   final bool resetMode;
@@ -280,7 +278,6 @@ class OtpStepScreen extends StatefulWidget {
     required this.phone,
     required this.firstName,
     required this.lastName,
-    required this.demoCode,
     this.resetMode = false,
   });
 
@@ -321,6 +318,9 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
       _busy = true;
       _err = null;
     });
+    // La verification attend Firebase si la confirmation d'envoi tarde
+    // (SMS arrive avant codeSent) : le vrai code n'est jamais rejete
+    // pour cause de lenteur.
     final ok = await context.read<EkState>().verifyOtp(
       widget.phone,
       _code.text,
@@ -402,92 +402,44 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    // Vrai SMS (Firebase Auth) : simple confirmation.
-                    // Repli local : le code est affiche pour la demonstration.
-                    if (widget.demoCode.isEmpty)
-                      EkCard(
-                        color: Ek.safe.withValues(alpha: 0.06),
-                        border: Ek.safe.withValues(alpha: 0.28),
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.sms_outlined,
-                              size: 17,
-                              color: Ek.safe,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'SMS ENVOYE',
-                                    style: Ek.over(size: 9, color: Ek.safe),
+                    // Vrai SMS via Firebase Auth : confirmation d'envoi.
+                    EkCard(
+                      color: Ek.safe.withValues(alpha: 0.06),
+                      border: Ek.safe.withValues(alpha: 0.28),
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.sms_outlined,
+                            size: 17,
+                            color: Ek.safe,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'SMS ENVOYE',
+                                  style: Ek.over(size: 9, color: Ek.safe),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Un code de verification a ete envoye '
+                                  'par SMS a ${widget.phone}. La reception '
+                                  'peut prendre jusqu\'a 2 minutes.',
+                                  style: Ek.body(
+                                    size: 13,
+                                    color: Ek.textPrimary,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Un code de verification a ete envoye '
-                                    'par SMS a ${widget.phone}.',
-                                    style: Ek.body(
-                                      size: 13,
-                                      color: Ek.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      )
-                    else
-                      EkCard(
-                        color: Ek.accent.withValues(alpha: 0.06),
-                        border: Ek.accent.withValues(alpha: 0.28),
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.sms_outlined,
-                              size: 17,
-                              color: Ek.accent,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'SMS SIMULE (PREVIEW)',
-                                    style: Ek.over(size: 9, color: Ek.accent),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Votre code EKENGE PLUS : ${widget.demoCode}',
-                                    style: Ek.body(
-                                      size: 13,
-                                      color: Ek.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                _code.text = widget.demoCode;
-                                _verify();
-                              },
-                              icon: const Icon(
-                                Icons.content_paste_go,
-                                size: 18,
-                                color: Ek.accent,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    if (widget.demoCode.isNotEmpty &&
-                        context.read<EkState>().otpFallbackReason != null) ...[
+                    ),
+                    if (context.watch<EkState>().otpError != null) ...[
                       const SizedBox(height: 10),
                       EkCard(
                         color: Ek.warn.withValues(alpha: 0.06),
@@ -504,8 +456,10 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'SMS reel indisponible : '
-                                '${context.read<EkState>().otpFallbackReason}',
+                                'Envoi du SMS impossible : '
+                                '${context.watch<EkState>().otpError}\n'
+                                'Utilisez « Renvoyer le code » pour '
+                                'reessayer.',
                                 style: Ek.body(
                                   size: 11,
                                   color: Ek.textSecondary,
@@ -810,7 +764,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _err = 'Aucun compte associe a ce numero');
       return;
     }
-    final code = await st.sendOtp(phone);
+    await st.sendOtp(phone);
     if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -818,7 +772,6 @@ class _LoginScreenState extends State<LoginScreen> {
           phone: phone,
           firstName: '',
           lastName: '',
-          demoCode: code,
           resetMode: true,
         ),
       ),
