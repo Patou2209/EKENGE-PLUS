@@ -57,6 +57,10 @@ class FirebaseBackend {
 
   /// Envoie un vrai SMS OTP au numero fourni (format E.164 : +243...).
   /// Retourne true si l'envoi est engage, false si Firebase indisponible.
+  ///
+  /// Tentative 1 : flux normal (Play Integrity).
+  /// Tentative 2 : si aucune reponse, flux reCAPTCHA force (une page web
+  /// de verification s'ouvre brievement, puis le SMS part).
   Future<bool> sendRealOtp(
     String phone, {
     required void Function(String error) onError,
@@ -64,7 +68,46 @@ class FirebaseBackend {
     void Function()? onAutoVerified,
   }) async {
     if (!_initialized) return false;
+    String? firstError;
+    final ok = await _attemptOtp(
+      phone,
+      forceRecaptcha: false,
+      waitSeconds: 35,
+      onError: (e) => firstError = e,
+      onCodeSent: onCodeSent,
+      onAutoVerified: onAutoVerified,
+    );
+    if (ok) return true;
+    if (kDebugMode) {
+      debugPrint('OTP tentative 1 echouee ($firstError) — essai reCAPTCHA');
+    }
+    // Tentative 2 : reCAPTCHA force (contourne Play Integrity).
+    String? secondError;
+    final ok2 = await _attemptOtp(
+      phone,
+      forceRecaptcha: true,
+      waitSeconds: 75,
+      onError: (e) => secondError = e,
+      onCodeSent: onCodeSent,
+      onAutoVerified: onAutoVerified,
+    );
+    if (ok2) return true;
+    onError(secondError ?? firstError ?? 'Aucune reponse de Firebase Auth');
+    return false;
+  }
+
+  Future<bool> _attemptOtp(
+    String phone, {
+    required bool forceRecaptcha,
+    required int waitSeconds,
+    required void Function(String error) onError,
+    void Function()? onCodeSent,
+    void Function()? onAutoVerified,
+  }) async {
     try {
+      if (!kIsWeb) {
+        await _auth.setSettings(forceRecaptchaFlow: forceRecaptcha);
+      }
       final completer = Completer<bool>();
       autoVerified = false;
       await _auth.verifyPhoneNumber(
@@ -95,8 +138,9 @@ class FirebaseBackend {
           if (!completer.isCompleted) completer.complete(true);
         },
       );
+      // L'attestation (Play Integrity ou reCAPTCHA) peut prendre du temps.
       return await completer.future.timeout(
-        const Duration(seconds: 30),
+        Duration(seconds: waitSeconds),
         onTimeout: () => _verificationId != null,
       );
     } catch (e) {
