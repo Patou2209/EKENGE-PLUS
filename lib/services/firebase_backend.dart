@@ -52,6 +52,9 @@ class FirebaseBackend {
   String? _verificationId;
   int? _resendToken;
 
+  /// true si Android a valide automatiquement le SMS (connexion deja faite).
+  bool autoVerified = false;
+
   /// Envoie un vrai SMS OTP au numero fourni (format E.164 : +243...).
   /// Retourne true si l'envoi est engage, false si Firebase indisponible.
   Future<bool> sendRealOtp(
@@ -63,6 +66,7 @@ class FirebaseBackend {
     if (!_initialized) return false;
     try {
       final completer = Completer<bool>();
+      autoVerified = false;
       await _auth.verifyPhoneNumber(
         phoneNumber: phone,
         timeout: const Duration(seconds: 60),
@@ -71,7 +75,9 @@ class FirebaseBackend {
           // Android peut valider automatiquement le SMS recu.
           try {
             await _auth.signInWithCredential(cred);
+            autoVerified = true;
             onAutoVerified?.call();
+            if (!completer.isCompleted) completer.complete(true);
           } catch (_) {}
         },
         verificationFailed: (fa.FirebaseAuthException e) {
@@ -101,7 +107,11 @@ class FirebaseBackend {
 
   /// Verifie le code OTP recu par SMS.
   Future<bool> verifyRealOtp(String code) async {
-    if (!_initialized || _verificationId == null) return false;
+    if (!_initialized) return false;
+    // Android a deja valide le SMS automatiquement : l'utilisateur est
+    // connecte, le code saisi n'a plus besoin d'etre verifie.
+    if (autoVerified && _auth.currentUser != null) return true;
+    if (_verificationId == null) return false;
     try {
       final cred = fa.PhoneAuthProvider.credential(
         verificationId: _verificationId!,
@@ -121,9 +131,19 @@ class FirebaseBackend {
       case 'too-many-requests':
         return 'Trop de tentatives. Reessayez plus tard.';
       case 'quota-exceeded':
-        return 'Quota SMS du jour depasse (plan gratuit). Reessayez demain.';
+        return 'Quota SMS du jour depasse. Reessayez demain.';
+      case 'app-not-authorized':
+        return 'Application non autorisee (empreinte SHA non reconnue). '
+            'Code : app-not-authorized';
+      case 'missing-client-identifier':
+        return 'Verification d\'application impossible '
+            '(Play Integrity/reCAPTCHA). Code : missing-client-identifier';
+      case 'network-request-failed':
+        return 'Pas de connexion internet. Verifiez votre reseau.';
+      case 'invalid-app-credential':
+        return 'Jeton de verification refuse. Code : invalid-app-credential';
       default:
-        return 'Erreur d\'authentification : ${e.message ?? e.code}';
+        return 'Erreur [${e.code}] : ${e.message ?? ''}';
     }
   }
 
@@ -392,5 +412,56 @@ class FirebaseBackend {
         }
       });
     } catch (_) {}
+  }
+
+  // =========================================================================
+  // §13 Boite de reception temps reel (Firestore)
+  // =========================================================================
+
+  StreamSubscription<fs.QuerySnapshot<Map<String, dynamic>>>? _inboxSub;
+  final Set<String> _seenInbox = {};
+
+  /// Ecoute en temps reel les messages push adresses a [phone] : toute
+  /// nouvelle alerte apparait immediatement dans l'application (cloche),
+  /// meme si la notification FCM systeme n'est pas delivree.
+  void watchInbox(
+    String phone,
+    void Function(String kind, String body, String fromPhone) handler,
+  ) {
+    if (!_initialized) return;
+    _inboxSub?.cancel();
+    final startAt = DateTime.now().millisecondsSinceEpoch;
+    try {
+      _inboxSub = _db
+          .collection('messages')
+          .where('to_phone', isEqualTo: phone)
+          .snapshots()
+          .listen((snap) {
+            for (final change in snap.docChanges) {
+              if (change.type != fs.DocumentChangeType.added) continue;
+              final id = change.doc.id;
+              if (_seenInbox.contains(id)) continue;
+              _seenInbox.add(id);
+              final m = change.doc.data();
+              if (m == null || m['channel'] != 'push') continue;
+              // Ignore l'historique : seuls les messages recents sonnent.
+              final at = (m['at'] as num?)?.toInt() ?? 0;
+              if (at < startAt - 60000) continue;
+              handler(
+                (m['kind'] as String?) ?? '',
+                (m['body'] as String?) ?? '',
+                (m['from_phone'] as String?) ?? '',
+              );
+            }
+          });
+    } catch (e) {
+      if (kDebugMode) debugPrint('watchInbox: $e');
+    }
+  }
+
+  void stopWatchingInbox() {
+    _inboxSub?.cancel();
+    _inboxSub = null;
+    _seenInbox.clear();
   }
 }

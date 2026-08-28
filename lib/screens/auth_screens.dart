@@ -486,6 +486,36 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                           ],
                         ),
                       ),
+                    if (widget.demoCode.isNotEmpty &&
+                        context.read<EkState>().otpFallbackReason != null) ...[
+                      const SizedBox(height: 10),
+                      EkCard(
+                        color: Ek.warn.withValues(alpha: 0.06),
+                        border: Ek.warn.withValues(alpha: 0.28),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline,
+                              size: 15,
+                              color: Ek.warn,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'SMS reel indisponible : '
+                                '${context.read<EkState>().otpFallbackReason}',
+                                style: Ek.body(
+                                  size: 11,
+                                  color: Ek.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     EkButton(
                       label: 'Verifier le code',

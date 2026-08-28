@@ -150,17 +150,43 @@ class EkState extends ChangeNotifier {
       if (user != null) await _restore();
     }
     if (user != null) {
-      // §13 : jeton FCM a jour pour recevoir les alertes des proches,
-      // et reception des notifications quand l'app est au premier plan.
-      await _fb.refreshFcmToken(user!.phone);
-      _fb.onForegroundMessage((title, body) {
-        _pushToSelf(title, body, _severityFromTitle(title));
-        AlarmSound.instance.chirp();
-        notifyListeners();
-      });
+      _wireInbound(user!.phone);
     }
     bootstrapped = true;
     notifyListeners();
+  }
+
+  /// §13 : branche la reception des alertes pour cet utilisateur.
+  /// Non bloquant : le demarrage de l'app n'attend jamais ces operations
+  /// (la demande de permission notifications peut prendre plusieurs
+  /// secondes sur Android 13+).
+  void _wireInbound(String phone) {
+    // Jeton FCM a jour pour recevoir les notifications push.
+    unawaited(_fb.refreshFcmToken(phone));
+    // Notifications FCM recues quand l'app est au premier plan.
+    _fb.onForegroundMessage((title, body) {
+      _pushToSelf(title, body, _severityFromTitle(title));
+      AlarmSound.instance.chirp();
+      notifyListeners();
+    });
+    // Ecoute Firestore temps reel : toute alerte qui m'est adressee
+    // apparait dans la cloche de l'application, meme sans FCM.
+    _fb.watchInbox(phone, (kind, body, fromPhone) {
+      final title = switch (kind) {
+        'danger' => 'ALERTE DANGER',
+        'safe_level1' => 'Niveau 1 · Alerte preventive',
+        'safe_level2' => 'Niveau 2 · ALERTE CRITIQUE',
+        'safe_confirmed' => 'Securite confirmee',
+        'tracking_start' => 'Partage de localisation',
+        'tracking_stop' => 'Partage termine',
+        _ => 'EKENGE PLUS',
+      };
+      _pushToSelf(title, body, _severityFromTitle(title));
+      if (kind == 'danger' || kind == 'safe_level2') {
+        AlarmSound.instance.chirp();
+      }
+      notifyListeners();
+    });
   }
 
   static AlertKind _severityFromTitle(String title) {
@@ -263,10 +289,14 @@ class EkState extends ChangeNotifier {
   /// true si le dernier OTP est parti par VRAI SMS (Firebase Phone Auth).
   bool otpViaRealSms = false;
 
+  /// Raison exacte du repli en mode simule (diagnostic affiche a l'ecran).
+  String? otpFallbackReason;
+
   /// Envoie l'OTP. Priorite au vrai SMS via Firebase Auth ; en cas
   /// d'indisponibilite, repli sur le code local affiche a l'ecran.
   /// Retourne le code de demonstration, ou '' si un vrai SMS est parti.
   Future<String> sendOtp(String phone) async {
+    otpFallbackReason = null;
     if (_fb.isReady) {
       String? err;
       final sent = await _fb.sendRealOtp(phone, onError: (e) => err = e);
@@ -279,7 +309,15 @@ class EkState extends ChangeNotifier {
         );
         return '';
       }
+      otpFallbackReason = err ?? 'Aucune reponse de Firebase Auth (delai)';
+      _log(
+        EkEventType.otpSent,
+        'SMS reel indisponible',
+        'Repli en mode simule · ${otpFallbackReason!}',
+      );
       if (kDebugMode) debugPrint('OTP SMS indisponible: $err — repli local');
+    } else {
+      otpFallbackReason = 'Firebase non initialise sur cet appareil';
     }
     otpViaRealSms = false;
     return _be.sendOtp(phone);
