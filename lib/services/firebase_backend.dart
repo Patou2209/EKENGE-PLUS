@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -29,12 +30,34 @@ class FirebaseBackend {
 
   /// Initialisation au demarrage. Ne lance jamais d'exception : en cas
   /// d'echec l'app fonctionne en mode local.
+  ///
+  /// Meme configuration que le projet ImmoZone (OTP verifie et fonctionnel) :
+  /// App Check active puis forceRecaptchaFlow desactive une fois pour toutes.
   Future<bool> init() async {
     if (_initialized) return true;
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      if (!kIsWeb) {
+        // App Check : atteste l'application aupres de Firebase. Sans cette
+        // activation, Play Integrity peut bloquer silencieusement l'envoi
+        // du SMS OTP (observe : « aucune reponse de Firebase Auth »).
+        try {
+          await FirebaseAppCheck.instance.activate(
+            androidProvider: AndroidProvider.debug,
+          );
+        } catch (e) {
+          if (kDebugMode) debugPrint('AppCheck: $e');
+        }
+        // Flux Phone Auth silencieux (pas de page reCAPTCHA).
+        try {
+          await fa.FirebaseAuth.instance.setSettings(
+            forceRecaptchaFlow: false,
+            appVerificationDisabledForTesting: false,
+          );
+        } catch (_) {}
+      }
       _initialized = true;
       if (kDebugMode) debugPrint('Firebase initialise (ekenge-plus)');
       return true;
@@ -58,9 +81,9 @@ class FirebaseBackend {
   /// Envoie un vrai SMS OTP au numero fourni (format E.164 : +243...).
   /// Retourne true si l'envoi est engage, false si Firebase indisponible.
   ///
-  /// Tentative 1 : flux normal (Play Integrity).
-  /// Tentative 2 : si aucune reponse, flux reCAPTCHA force (une page web
-  /// de verification s'ouvre brievement, puis le SMS part).
+  /// Structure identique a ImmoZone (OTP verifie et fonctionnel) :
+  /// un seul appel verifyPhoneNumber, timeout long (120 s) pour laisser
+  /// Play Integrity repondre, App Check active au demarrage.
   Future<bool> sendRealOtp(
     String phone, {
     required void Function(String error) onError,
@@ -68,51 +91,13 @@ class FirebaseBackend {
     void Function()? onAutoVerified,
   }) async {
     if (!_initialized) return false;
-    String? firstError;
-    final ok = await _attemptOtp(
-      phone,
-      forceRecaptcha: false,
-      waitSeconds: 35,
-      onError: (e) => firstError = e,
-      onCodeSent: onCodeSent,
-      onAutoVerified: onAutoVerified,
-    );
-    if (ok) return true;
-    if (kDebugMode) {
-      debugPrint('OTP tentative 1 echouee ($firstError) — essai reCAPTCHA');
-    }
-    // Tentative 2 : reCAPTCHA force (contourne Play Integrity).
-    String? secondError;
-    final ok2 = await _attemptOtp(
-      phone,
-      forceRecaptcha: true,
-      waitSeconds: 75,
-      onError: (e) => secondError = e,
-      onCodeSent: onCodeSent,
-      onAutoVerified: onAutoVerified,
-    );
-    if (ok2) return true;
-    onError(secondError ?? firstError ?? 'Aucune reponse de Firebase Auth');
-    return false;
-  }
-
-  Future<bool> _attemptOtp(
-    String phone, {
-    required bool forceRecaptcha,
-    required int waitSeconds,
-    required void Function(String error) onError,
-    void Function()? onCodeSent,
-    void Function()? onAutoVerified,
-  }) async {
     try {
-      if (!kIsWeb) {
-        await _auth.setSettings(forceRecaptchaFlow: forceRecaptcha);
-      }
       final completer = Completer<bool>();
       autoVerified = false;
       await _auth.verifyPhoneNumber(
         phoneNumber: phone,
-        timeout: const Duration(seconds: 60),
+        // 120 s : laisse le temps a Play Integrity de repondre (ImmoZone).
+        timeout: const Duration(seconds: 120),
         forceResendingToken: _resendToken,
         verificationCompleted: (fa.PhoneAuthCredential cred) async {
           // Android peut valider automatiquement le SMS recu.
@@ -138,9 +123,9 @@ class FirebaseBackend {
           if (!completer.isCompleted) completer.complete(true);
         },
       );
-      // L'attestation (Play Integrity ou reCAPTCHA) peut prendre du temps.
+      // L'attestation Play Integrity peut prendre du temps au premier appel.
       return await completer.future.timeout(
-        Duration(seconds: waitSeconds),
+        const Duration(seconds: 120),
         onTimeout: () => _verificationId != null,
       );
     } catch (e) {
