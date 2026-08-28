@@ -402,53 +402,90 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    // Environnement de preview : le SMS reel necessite un
-                    // fournisseur SMS. Le code est affiche pour la demonstration.
-                    EkCard(
-                      color: Ek.accent.withValues(alpha: 0.06),
-                      border: Ek.accent.withValues(alpha: 0.28),
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.sms_outlined,
-                            size: 17,
-                            color: Ek.accent,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'SMS SIMULE (PREVIEW)',
-                                  style: Ek.over(size: 9, color: Ek.accent),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Votre code EKENGE PLUS : ${widget.demoCode}',
-                                  style: Ek.body(
-                                    size: 13,
-                                    color: Ek.textPrimary,
-                                  ),
-                                ),
-                              ],
+                    // Vrai SMS (Firebase Auth) : simple confirmation.
+                    // Repli local : le code est affiche pour la demonstration.
+                    if (widget.demoCode.isEmpty)
+                      EkCard(
+                        color: Ek.safe.withValues(alpha: 0.06),
+                        border: Ek.safe.withValues(alpha: 0.28),
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.sms_outlined,
+                              size: 17,
+                              color: Ek.safe,
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () {
-                              _code.text = widget.demoCode;
-                              _verify();
-                            },
-                            icon: const Icon(
-                              Icons.content_paste_go,
-                              size: 18,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'SMS ENVOYE',
+                                    style: Ek.over(size: 9, color: Ek.safe),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Un code de verification a ete envoye '
+                                    'par SMS a ${widget.phone}.',
+                                    style: Ek.body(
+                                      size: 13,
+                                      color: Ek.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      EkCard(
+                        color: Ek.accent.withValues(alpha: 0.06),
+                        border: Ek.accent.withValues(alpha: 0.28),
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.sms_outlined,
+                              size: 17,
                               color: Ek.accent,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'SMS SIMULE (PREVIEW)',
+                                    style: Ek.over(size: 9, color: Ek.accent),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Votre code EKENGE PLUS : ${widget.demoCode}',
+                                    style: Ek.body(
+                                      size: 13,
+                                      color: Ek.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                _code.text = widget.demoCode;
+                                _verify();
+                              },
+                              icon: const Icon(
+                                Icons.content_paste_go,
+                                size: 18,
+                                color: Ek.accent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 24),
                     EkButton(
                       label: 'Verifier le code',

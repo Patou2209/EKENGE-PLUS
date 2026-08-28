@@ -75,9 +75,7 @@ class ContactsService {
     }
 
     final out = byPhone.values.toList()
-      ..sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-      );
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return out;
   }
 }

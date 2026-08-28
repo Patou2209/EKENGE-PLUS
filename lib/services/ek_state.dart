@@ -7,6 +7,7 @@ import '../models/models.dart';
 import 'alarm_sound.dart';
 import 'backend.dart';
 import 'contacts_service.dart';
+import 'firebase_backend.dart';
 import 'location_service.dart';
 
 /// Notification Push recue par l'utilisateur (§11).
@@ -60,7 +61,11 @@ class EkState extends ChangeNotifier {
   }
 
   final Backend _be = Backend.instance;
+  final FirebaseBackend _fb = FirebaseBackend.instance;
   StreamSubscription<GeoPoint>? _locSub;
+
+  /// true lorsque le backend Firebase (Auth/Firestore/FCM) est operationnel.
+  bool get firebaseReady => _fb.isReady;
 
   // ---- Session ----------------------------------------------------------
   EkUser? user;
@@ -136,6 +141,9 @@ class EkState extends ChangeNotifier {
   // Amorcage
   // =======================================================================
   Future<void> bootstrap() async {
+    // Initialisation Firebase (Auth / Firestore / FCM). Non bloquant :
+    // en cas d'echec l'application fonctionne en mode local.
+    await _fb.init();
     final phone = await _be.session();
     if (phone != null) {
       user = await _be.loadUser(phone);
@@ -208,15 +216,42 @@ class EkState extends ChangeNotifier {
   // =======================================================================
   // §3 Authentification
   // =======================================================================
-  Future<String> sendOtp(String phone) => _be.sendOtp(phone);
+
+  /// true si le dernier OTP est parti par VRAI SMS (Firebase Phone Auth).
+  bool otpViaRealSms = false;
+
+  /// Envoie l'OTP. Priorite au vrai SMS via Firebase Auth ; en cas
+  /// d'indisponibilite, repli sur le code local affiche a l'ecran.
+  /// Retourne le code de demonstration, ou '' si un vrai SMS est parti.
+  Future<String> sendOtp(String phone) async {
+    if (_fb.isReady) {
+      String? err;
+      final sent = await _fb.sendRealOtp(phone, onError: (e) => err = e);
+      if (sent) {
+        otpViaRealSms = true;
+        _log(
+          EkEventType.otpSent,
+          'SMS envoye',
+          'Code OTP envoye par SMS a $phone (Firebase Auth)',
+        );
+        return '';
+      }
+      if (kDebugMode) debugPrint('OTP SMS indisponible: $err — repli local');
+    }
+    otpViaRealSms = false;
+    return _be.sendOtp(phone);
+  }
 
   Future<bool> verifyOtp(String phone, String code) async {
-    final ok = await _be.verifyOtp(phone, code);
+    final ok = otpViaRealSms
+        ? await _fb.verifyRealOtp(code)
+        : await _be.verifyOtp(phone, code);
     if (ok) {
       _log(
         EkEventType.otpVerified,
         'Numero verifie',
-        'Code OTP valide pour $phone',
+        'Code OTP valide pour $phone'
+            '${otpViaRealSms ? ' (SMS Firebase)' : ''}',
       );
     }
     return ok;
@@ -234,6 +269,8 @@ class EkState extends ChangeNotifier {
       lastName: lastName,
       password: password,
     );
+    // Synchronisation Firestore : le compte est visible par les proches.
+    await _fb.saveUser(user!);
     await _be.setSession(phone);
     listsConfigured = false;
     contacts.clear();
@@ -305,8 +342,7 @@ class EkState extends ChangeNotifier {
   Future<bool> contactsPermanentlyDenied() =>
       ContactsService.instance.isPermanentlyDenied();
 
-  Future<void> openSystemSettings() =>
-      ContactsService.instance.openSettings();
+  Future<void> openSystemSettings() => ContactsService.instance.openSettings();
 
   Future<bool> requestLocationPermission() async {
     final ok = await LocationService.instance.requestPermission();
@@ -338,8 +374,14 @@ class EkState extends ChangeNotifier {
   }
 
   /// §5 Verifie si un numero possede deja un compte EKENGE PLUS.
-  Future<bool> isEkengeNumber(String phone) =>
-      _be.isEkengeNumber(Backend.normalizePhone(phone));
+  /// §5 : verifie si un numero possede un compte EKENGE PLUS.
+  /// Interroge d'abord Firestore (comptes reels de tous les utilisateurs),
+  /// puis le stockage local.
+  Future<bool> isEkengeNumber(String phone) async {
+    final n = Backend.normalizePhone(phone);
+    if (await _fb.userExists(n)) return true;
+    return _be.isEkengeNumber(n);
+  }
 
   // =======================================================================
   // §4 Listes de securite + §5 Synchronisation
@@ -363,7 +405,7 @@ class EkState extends ChangeNotifier {
         lists: {...contacts[idx].lists, ...lists},
       );
     } else {
-      final linked = await _be.isEkengeNumber(phone);
+      final linked = await isEkengeNumber(phone);
       final c = SafetyContact(
         id: 'c_${DateTime.now().microsecondsSinceEpoch}',
         name: entry.name,
@@ -373,6 +415,8 @@ class EkState extends ChangeNotifier {
         addedAt: DateTime.now(),
       );
       contacts.add(c);
+      // Synchronisation Firestore de la liste (§4).
+      if (user != null) await _fb.saveContact(user!.phone, c);
 
       // §5 Synchronisation
       if (linked) {
@@ -550,6 +594,10 @@ class EkState extends ChangeNotifier {
     position = p;
     trail.add(p);
     if (trail.length > 240) trail.removeAt(0);
+    // §6 : position temps reel publiee sur Firestore pour les proches.
+    if (trackingActive && user != null) {
+      _fb.pushPosition(user!.phone, p);
+    }
     // Mise a jour temps reel des proches suivis.
     for (var i = 0; i < watched.length; i++) {
       if (watched[i].trackingActive) {
@@ -574,6 +622,14 @@ class EkState extends ChangeNotifier {
       await startTracking(notify: false, reason: 'Active par l\'alerte Danger');
     }
     position ??= LocationService.instance.current;
+
+    // §7 : alerte critique publiee sur Firestore.
+    _fb.pushAlert(
+      phone: user!.phone,
+      kind: 'danger',
+      startedAt: now,
+      position: position,
+    );
 
     activeAlert = ActiveAlert(
       kind: AlertKind.danger,
@@ -859,6 +915,7 @@ class EkState extends ChangeNotifier {
         kind: kind,
       );
       outbox.insert(0, m);
+      if (user != null) await _fb.pushMessage(m, user!.phone);
       return;
     }
     final m = await _be.dispatch(
@@ -868,6 +925,8 @@ class EkState extends ChangeNotifier {
       kind: kind,
     );
     outbox.insert(0, m);
+    // Trace cloud : base de travail des Cloud Functions (FCM / WhatsApp).
+    if (user != null) await _fb.pushMessage(m, user!.phone);
     _log(
       EkEventType.notificationSent,
       channel == Channel.push
@@ -913,6 +972,15 @@ class EkState extends ChangeNotifier {
         position: pos,
       ),
     );
+    // §12 : journalisation cloud des evenements de securite.
+    if (user != null) {
+      _fb.pushEvent(
+        phone: user!.phone,
+        type: t.name,
+        title: title,
+        detail: detail,
+      );
+    }
   }
 
   Future<void> clearJournal() async {

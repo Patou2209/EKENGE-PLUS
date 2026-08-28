@@ -10,6 +10,7 @@ import '../core/design.dart';
 import '../models/models.dart';
 import '../services/backend.dart';
 import '../services/contacts_service.dart';
+import '../services/firebase_backend.dart';
 import '../services/haptics.dart';
 import '../services/location_service.dart';
 import '../widgets/common.dart';
@@ -144,11 +145,23 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
             .toList(),
       }),
     );
+    // §11 : session publiee sur Firestore — le lien de suivi devient
+    // exploitable par la future page web publique.
+    await FirebaseBackend.instance.saveGuestSession(
+      token: _trackingToken,
+      guestName: _guestName,
+      sharing: _sharing,
+      startedAt: _startedAt,
+      followers: _followers
+          .map((f) => {'name': f.name, 'phone': f.phone})
+          .toList(),
+    );
   }
 
   Future<void> _clearSession() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSessionKey);
+    await FirebaseBackend.instance.endGuestSession(_trackingToken);
   }
 
   @override
@@ -274,6 +287,8 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
         _trail.add(p);
         if (_trail.length > 240) _trail.removeAt(0);
       });
+      // Position temps reel publiee pour le lien de suivi.
+      FirebaseBackend.instance.pushGuestPosition(_trackingToken, p);
     });
     if (!mounted) return;
     setState(() {

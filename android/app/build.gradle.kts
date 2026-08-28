@@ -7,6 +7,8 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Firebase : applique google-services.json a la compilation
+    id("com.google.gms.google-services")
 }
 
 // Chargement des identifiants de signature (android/key.properties)
