@@ -179,17 +179,47 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
       _busy = true;
       _err = null;
     });
-    await st.sendOtp(phone);
-    if (!mounted) return;
-    setState(() => _busy = false);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OtpStepScreen(
-          phone: phone,
-          firstName: _first.text.trim(),
-          lastName: _last.text.trim(),
-        ),
-      ),
+    // Flux ImmoZone : on navigue vers l'ecran OTP UNIQUEMENT quand
+    // Firebase confirme l'envoi du SMS (codeSent). Le spinner tourne
+    // pendant l'attestation Play Integrity (jusqu'a ~2 min au 1er envoi).
+    await st.startOtp(
+      phone: phone,
+      onCodeSent: () {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => OtpStepScreen(
+              phone: phone,
+              firstName: _first.text.trim(),
+              lastName: _last.text.trim(),
+            ),
+          ),
+        );
+      },
+      onAutoVerified: () {
+        // Android a valide le SMS automatiquement : saisie inutile,
+        // on passe directement au mot de passe.
+        if (!mounted) return;
+        setState(() => _busy = false);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PasswordStepScreen(
+              phone: phone,
+              firstName: _first.text.trim(),
+              lastName: _last.text.trim(),
+              resetMode: false,
+            ),
+          ),
+        );
+      },
+      onFailed: (message) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _err = message;
+        });
+      },
     );
   }
 
@@ -289,6 +319,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
   final _code = TextEditingController();
   bool _busy = false;
   String? _err;
+  String? _resendErr;
   int _resend = 45;
 
   @override
@@ -302,6 +333,41 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
       await Future<void>.delayed(const Duration(seconds: 1));
       if (mounted) setState(() => _resend--);
     }
+  }
+
+  /// Renvoi du SMS — flux ImmoZone : reutilise le jeton de renvoi
+  /// (forceResendingToken) pour eviter une nouvelle attestation complete.
+  Future<void> _resendCode() async {
+    setState(() {
+      _resendErr = null;
+      _resend = 45;
+    });
+    _countdown();
+    await context.read<EkState>().startOtp(
+      phone: widget.phone,
+      isResend: true,
+      onCodeSent: () {
+        if (!mounted) return;
+        setState(() => _resendErr = null);
+      },
+      onAutoVerified: () {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PasswordStepScreen(
+              phone: widget.phone,
+              firstName: widget.firstName,
+              lastName: widget.lastName,
+              resetMode: widget.resetMode,
+            ),
+          ),
+        );
+      },
+      onFailed: (message) {
+        if (!mounted) return;
+        setState(() => _resendErr = message);
+      },
+    );
   }
 
   @override
@@ -439,7 +505,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                         ],
                       ),
                     ),
-                    if (context.watch<EkState>().otpError != null) ...[
+                    if (_resendErr != null) ...[
                       const SizedBox(height: 10),
                       EkCard(
                         color: Ek.warn.withValues(alpha: 0.06),
@@ -456,10 +522,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Envoi du SMS impossible : '
-                                '${context.watch<EkState>().otpError}\n'
-                                'Utilisez « Renvoyer le code » pour '
-                                'reessayer.',
+                                _resendErr!,
                                 style: Ek.body(
                                   size: 11,
                                   color: Ek.textSecondary,
@@ -480,16 +543,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                     const SizedBox(height: 16),
                     Center(
                       child: TextButton(
-                        onPressed: _resend > 0
-                            ? null
-                            : () async {
-                                await context.read<EkState>().sendOtp(
-                                  widget.phone,
-                                );
-                                if (!mounted) return;
-                                setState(() => _resend = 45);
-                                _countdown();
-                              },
+                        onPressed: _resend > 0 ? null : _resendCode,
                         child: Text(
                           _resend > 0
                               ? 'Renvoyer le code dans $_resend s'
@@ -764,17 +818,48 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _err = 'Aucun compte associe a ce numero');
       return;
     }
-    await st.sendOtp(phone);
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OtpStepScreen(
-          phone: phone,
-          firstName: '',
-          lastName: '',
-          resetMode: true,
-        ),
-      ),
+    setState(() {
+      _busy = true;
+      _err = null;
+    });
+    // Flux ImmoZone : navigation vers la saisie du code DANS onCodeSent.
+    await st.startOtp(
+      phone: phone,
+      onCodeSent: () {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => OtpStepScreen(
+              phone: phone,
+              firstName: '',
+              lastName: '',
+              resetMode: true,
+            ),
+          ),
+        );
+      },
+      onAutoVerified: () {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PasswordStepScreen(
+              phone: phone,
+              firstName: '',
+              lastName: '',
+              resetMode: true,
+            ),
+          ),
+        );
+      },
+      onFailed: (message) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _err = message;
+        });
+      },
     );
   }
 

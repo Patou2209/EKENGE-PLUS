@@ -55,7 +55,7 @@ class Backend {
 
   // =======================================================================
   // §3 Authentification — comptes locaux (l'OTP passe EXCLUSIVEMENT par
-  // Firebase Phone Auth : voir FirebaseBackend.sendRealOtp/verifyRealOtp)
+  // Firebase Phone Auth : voir FirebaseBackend.startPhoneVerification/verifyRealOtp)
   // =======================================================================
 
   Future<bool> accountExists(String phone) async {

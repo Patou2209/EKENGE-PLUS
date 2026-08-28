@@ -78,101 +78,78 @@ class FirebaseBackend {
   /// true si Android a valide automatiquement le SMS (connexion deja faite).
   bool autoVerified = false;
 
-  /// Attente de la confirmation d'envoi (codeSent). Permet a verifyRealOtp
-  /// d'accepter un code reel meme si Firebase confirme l'envoi en retard.
-  Completer<void>? _verificationReady;
-
-  /// Envoie un vrai SMS OTP au numero fourni (format E.164 : +243...).
-  /// Retourne true si l'envoi est engage, false si Firebase indisponible.
-  ///
-  /// Structure identique a ImmoZone (OTP verifie et fonctionnel) :
-  /// un seul appel verifyPhoneNumber, timeout long (120 s) pour laisser
-  /// Play Integrity repondre, App Check active au demarrage.
-  Future<bool> sendRealOtp(
-    String phone, {
-    required void Function(String error) onError,
-    void Function()? onCodeSent,
-    void Function()? onAutoVerified,
+  /// Lance la verification du numero — COPIE EXACTE du flux ImmoZone
+  /// (PhoneAuthService.verifyPhoneNumber, OTP verifie et fonctionnel) :
+  /// - purement pilote par callbacks, AUCUNE attente ni timeout artificiel ;
+  /// - l'appelant navigue vers l'ecran OTP DANS onCodeSent (le SMS est
+  ///   alors reellement parti) ;
+  /// - forceResendingToken uniquement pour les renvois (isResend).
+  Future<void> startPhoneVerification({
+    required String phone,
+    required void Function() onCodeSent,
+    required void Function() onAutoVerified,
+    required void Function(String message) onFailed,
+    bool isResend = false,
   }) async {
-    if (!_initialized) return false;
+    if (!_initialized) {
+      onFailed(
+        'Firebase non initialise sur cet appareil. '
+        'Verifiez votre connexion internet puis relancez l\'application.',
+      );
+      return;
+    }
+    autoVerified = false;
+    if (kDebugMode) {
+      debugPrint('[PhoneAuth] verifyPhoneNumber: $phone isResend=$isResend');
+    }
     try {
-      final completer = Completer<bool>();
-      autoVerified = false;
-      _verificationId = null;
-      _verificationReady = Completer<void>();
       await _auth.verifyPhoneNumber(
         phoneNumber: phone,
         // 120 s : laisse le temps a Play Integrity de repondre (ImmoZone).
         timeout: const Duration(seconds: 120),
-        forceResendingToken: _resendToken,
+        // ImmoZone : jeton de renvoi UNIQUEMENT pour les renvois.
+        forceResendingToken: isResend ? _resendToken : null,
         verificationCompleted: (fa.PhoneAuthCredential cred) async {
-          // Android peut valider automatiquement le SMS recu.
+          // Android auto-retrieval : Firebase valide le SMS automatiquement.
+          if (kDebugMode) debugPrint('[PhoneAuth] verificationCompleted');
           try {
             await _auth.signInWithCredential(cred);
             autoVerified = true;
-            _signalVerificationReady();
-            onAutoVerified?.call();
-            if (!completer.isCompleted) completer.complete(true);
-          } catch (_) {}
+            onAutoVerified();
+          } on fa.FirebaseAuthException catch (e) {
+            onFailed(_frenchAuthError(e));
+          }
         },
         verificationFailed: (fa.FirebaseAuthException e) {
-          _signalVerificationReady();
-          onError(_frenchAuthError(e));
-          if (!completer.isCompleted) completer.complete(false);
+          if (kDebugMode) {
+            debugPrint('[PhoneAuth] verificationFailed: ${e.code}');
+          }
+          onFailed(_frenchAuthError(e));
         },
         codeSent: (String verificationId, int? resendToken) {
-          // Peut arriver TARDIVEMENT (Play Integrity lent) : on memorise
-          // toujours l'identifiant pour que le vrai code reste verifiable.
           _verificationId = verificationId;
           _resendToken = resendToken;
-          _signalVerificationReady();
-          onCodeSent?.call();
-          if (!completer.isCompleted) completer.complete(true);
+          if (kDebugMode) debugPrint('[PhoneAuth] codeSent');
+          onCodeSent();
         },
         codeAutoRetrievalTimeout: (String verificationId) {
+          if (kDebugMode) debugPrint('[PhoneAuth] codeAutoRetrievalTimeout');
           _verificationId = verificationId;
-          _signalVerificationReady();
-          if (!completer.isCompleted) completer.complete(true);
         },
       );
-      // L'attestation Play Integrity peut prendre du temps au premier appel.
-      return await completer.future.timeout(
-        const Duration(seconds: 120),
-        onTimeout: () => _verificationId != null,
-      );
     } catch (e) {
-      onError('Envoi du SMS impossible : $e');
-      return false;
+      onFailed('Envoi du SMS impossible : $e');
     }
   }
 
-  void _signalVerificationReady() {
-    final c = _verificationReady;
-    if (c != null && !c.isCompleted) c.complete();
-  }
-
-  /// Verifie le code OTP recu par SMS aupres de Firebase Auth.
-  ///
-  /// CORRECTION DE LA COURSE « SMS tardif » : si l'utilisateur saisit le
-  /// code alors que Firebase n'a pas encore confirme l'envoi (codeSent en
-  /// retard a cause de Play Integrity/reseau), on ATTEND la confirmation
-  /// jusqu'a 45 s au lieu de rejeter le code immediatement.
+  /// Verifie le code OTP saisi — identique a ImmoZone (signInWithCredential
+  /// avec le verificationId recu dans codeSent).
   Future<bool> verifyRealOtp(String code) async {
     if (!_initialized) return false;
     // Android a deja valide le SMS automatiquement : l'utilisateur est
     // connecte, le code saisi n'a plus besoin d'etre verifie.
     if (autoVerified && _auth.currentUser != null) return true;
-    if (_verificationId == null) {
-      final ready = _verificationReady;
-      if (ready == null) return false;
-      try {
-        await ready.future.timeout(const Duration(seconds: 45));
-      } catch (_) {
-        return false;
-      }
-      if (autoVerified && _auth.currentUser != null) return true;
-      if (_verificationId == null) return false;
-    }
+    if (_verificationId == null) return false;
     try {
       final cred = fa.PhoneAuthProvider.credential(
         verificationId: _verificationId!,
