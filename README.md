@@ -76,10 +76,13 @@ console et de `MainActivity.kt`.
 
 ### 7. Firebase Admin SDK (operations serveur)
 
-Cle de compte de service complete : `secrets/firebase-admin-sdk.json`
-(inclus dans le depot). Donne un acces administrateur total au projet
-(Firestore, Auth, configuration). Utilisee pour les scripts de maintenance
-(creation de collections, nettoyage des comptes, diagnostic).
+Cle de compte de service : NON incluse dans le depot — GitHub bloque
+automatiquement le push des cles privees Google Cloud (secret scanning),
+meme sur un depot prive. Elle se retelecharge en 30 secondes :
+Console Firebase → Parametres du projet → Comptes de service →
+"Generer une nouvelle cle privee" (langage Python). Elle donne un acces
+administrateur total au projet (Firestore, Auth, configuration) et sert
+aux scripts de maintenance (nettoyage des comptes, diagnostic).
 
 ---
 
