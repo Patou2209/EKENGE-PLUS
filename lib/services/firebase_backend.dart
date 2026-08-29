@@ -80,20 +80,6 @@ class FirebaseBackend {
   String? _verificationId;
   int? _resendToken;
 
-  /// Blocage local apres "too-many-requests" : evite que le SDK rouvre la
-  /// page navigateur (reCAPTCHA) a chaque nouvelle tentative pendant le
-  /// rate-limiting de Firebase. Le message d'erreur clair s'affiche
-  /// directement dans l'app, sans quitter l'ecran.
-  DateTime? _smsBlockedUntil;
-
-  String _remainingText() {
-    final left = _smsBlockedUntil!.difference(DateTime.now());
-    final min = left.inMinutes + 1;
-    return min >= 60
-        ? '${(min / 60).ceil()} heure(s)'
-        : '$min minute(s)';
-  }
-
   /// true si Android a valide automatiquement le SMS (connexion deja faite).
   bool autoVerified = false;
 
@@ -114,16 +100,6 @@ class FirebaseBackend {
       onFailed(
         'Firebase non initialise sur cet appareil. '
         'Verifiez votre connexion internet puis relancez l\'application.',
-      );
-      return;
-    }
-    // Rate-limiting Firebase encore actif : erreur claire immediate,
-    // sans relancer le SDK (donc sans page navigateur).
-    if (_smsBlockedUntil != null &&
-        DateTime.now().isBefore(_smsBlockedUntil!)) {
-      onFailed(
-        'Trop de tentatives SMS sur ce numero. '
-        'Reessayez dans environ ${_remainingText()}.',
       );
       return;
     }
@@ -152,15 +128,6 @@ class FirebaseBackend {
         verificationFailed: (fa.FirebaseAuthException e) {
           if (kDebugMode) {
             debugPrint('[PhoneAuth] verificationFailed: ${e.code}');
-          }
-          // Memorise le blocage : les prochaines tentatives echoueront
-          // proprement dans l'app, sans ouvrir la page navigateur.
-          if (e.code == 'too-many-requests') {
-            _smsBlockedUntil = DateTime.now().add(
-              const Duration(minutes: 30),
-            );
-          } else if (e.code == 'quota-exceeded') {
-            _smsBlockedUntil = DateTime.now().add(const Duration(hours: 4));
           }
           onFailed(_frenchAuthError(e));
         },
@@ -205,14 +172,9 @@ class FirebaseBackend {
       case 'invalid-phone-number':
         return 'Numero de telephone invalide. Format attendu : +243...';
       case 'too-many-requests':
-        return 'Trop de tentatives SMS sur ce numero. '
-            'Reessayez dans environ 30 minutes.';
+        return 'Trop de tentatives. Reessayez plus tard.';
       case 'quota-exceeded':
-        return 'Quota SMS du jour depasse. Reessayez plus tard.';
-      case 'web-context-cancelled':
-      case 'web-context-canceled':
-        return 'Verification annulee. Si le probleme persiste, ce numero a '
-            'atteint la limite de SMS : reessayez plus tard.';
+        return 'Quota SMS du jour depasse. Reessayez demain.';
       case 'app-not-authorized':
         return 'Application non autorisee (empreinte SHA non reconnue). '
             'Code : app-not-authorized';
