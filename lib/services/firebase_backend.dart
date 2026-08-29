@@ -80,28 +80,6 @@ class FirebaseBackend {
   String? _verificationId;
   int? _resendToken;
 
-  // ── Compteur de tentatives OTP — COPIE EXACTE ImmoZone (login_screen) ────
-  // Max 5 demandes, puis blocage local 10 minutes. Le blocage est verifie
-  // AVANT d'appeler Firebase : aucune page navigateur ne peut s'ouvrir,
-  // l'erreur claire s'affiche directement dans l'app.
-  static const int _maxOtpAttempts = 5;
-  int _otpAttemptCount = 0;
-  DateTime? _otpBlockedUntil;
-
-  /// Retourne null si non bloque, sinon le nombre de secondes restantes
-  /// (ImmoZone : _otpBlockedSecondsRemaining).
-  int? _otpBlockedSecondsRemaining() {
-    if (_otpBlockedUntil == null) return null;
-    final remaining = _otpBlockedUntil!.difference(DateTime.now()).inSeconds;
-    if (remaining <= 0) {
-      // Blocage expire → reinitialiser
-      _otpBlockedUntil = null;
-      _otpAttemptCount = 0;
-      return null;
-    }
-    return remaining;
-  }
-
   /// true si Android a valide automatiquement le SMS (connexion deja faite).
   bool autoVerified = false;
 
@@ -125,19 +103,6 @@ class FirebaseBackend {
       );
       return;
     }
-    // ImmoZone : verifier le blocage AVANT d'appeler Firebase → pas de
-    // page navigateur, message clair immediat.
-    final blockedSecs = _otpBlockedSecondsRemaining();
-    if (blockedSecs != null) {
-      final mins = (blockedSecs / 60).ceil();
-      onFailed(
-        'Vous avez atteint le maximum de $_maxOtpAttempts demandes.\n'
-        'Veuillez patienter encore $mins minute${mins > 1 ? 's' : ''} '
-        'avant de reessayer.',
-      );
-      return;
-    }
-    _otpAttemptCount++;
     autoVerified = false;
     if (kDebugMode) {
       debugPrint('[PhoneAuth] verifyPhoneNumber: $phone isResend=$isResend');
@@ -164,20 +129,11 @@ class FirebaseBackend {
           if (kDebugMode) {
             debugPrint('[PhoneAuth] verificationFailed: ${e.code}');
           }
-          // ImmoZone : bloquer 10 minutes si le maximum est atteint.
-          if (_otpAttemptCount >= _maxOtpAttempts) {
-            _otpBlockedUntil = DateTime.now().add(
-              const Duration(minutes: 10),
-            );
-          }
-          onFailed(_frenchAuthError(e, remaining: _remainingAttempts));
+          onFailed(_frenchAuthError(e));
         },
         codeSent: (String verificationId, int? resendToken) {
           _verificationId = verificationId;
           _resendToken = resendToken;
-          // ImmoZone : succes → reinitialiser le compteur et le blocage.
-          _otpAttemptCount = 0;
-          _otpBlockedUntil = null;
           if (kDebugMode) debugPrint('[PhoneAuth] codeSent');
           onCodeSent();
         },
@@ -211,23 +167,14 @@ class FirebaseBackend {
     }
   }
 
-  int get _remainingAttempts =>
-      (_maxOtpAttempts - _otpAttemptCount).clamp(0, _maxOtpAttempts);
-
-  String _frenchAuthError(fa.FirebaseAuthException e, {int? remaining}) {
-    final suffix = (remaining != null && remaining > 0)
-        ? '\nTentatives restantes : $remaining sur $_maxOtpAttempts'
-        : '';
+  static String _frenchAuthError(fa.FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-phone-number':
         return 'Numero de telephone invalide. Format attendu : +243...';
       case 'too-many-requests':
-        // Texte ImmoZone (mapPhoneAuthError + dialog login_screen).
-        return 'Ce numero a recu trop de codes recemment.\n'
-                'Attendez environ 10 minutes et reessayez.'
-            '$suffix';
+        return 'Trop de tentatives. Reessayez plus tard.';
       case 'quota-exceeded':
-        return 'Quota SMS depasse. Reessayez plus tard.$suffix';
+        return 'Quota SMS du jour depasse. Reessayez demain.';
       case 'app-not-authorized':
         return 'Application non autorisee (empreinte SHA non reconnue). '
             'Code : app-not-authorized';
