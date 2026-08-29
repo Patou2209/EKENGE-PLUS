@@ -179,12 +179,27 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
       _busy = true;
       _err = null;
     });
+    // Garde-fou : si aucun callback Firebase ne repond en 150 s, on
+    // affiche un diagnostic clair au lieu d'un spinner infini.
+    var answered = false;
+    Future<void>.delayed(const Duration(seconds: 150), () {
+      if (!answered && mounted && _busy) {
+        setState(() {
+          _busy = false;
+          _err =
+              'Firebase ne repond pas (aucun callback en 150 s). '
+              'Verifiez la connexion internet et les services Google Play '
+              'de l\'appareil, puis reessayez.';
+        });
+      }
+    });
     // Flux ImmoZone : on navigue vers l'ecran OTP UNIQUEMENT quand
     // Firebase confirme l'envoi du SMS (codeSent). Le spinner tourne
     // pendant l'attestation Play Integrity (jusqu'a ~2 min au 1er envoi).
     await st.startOtp(
       phone: phone,
       onCodeSent: () {
+        answered = true;
         if (!mounted) return;
         setState(() => _busy = false);
         Navigator.of(context).push(
@@ -200,6 +215,7 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
       onAutoVerified: () {
         // Android a valide le SMS automatiquement : saisie inutile,
         // on passe directement au mot de passe.
+        answered = true;
         if (!mounted) return;
         setState(() => _busy = false);
         Navigator.of(context).push(
@@ -214,6 +230,7 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
         );
       },
       onFailed: (message) {
+        answered = true;
         if (!mounted) return;
         setState(() {
           _busy = false;

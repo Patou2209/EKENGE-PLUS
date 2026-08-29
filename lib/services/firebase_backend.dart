@@ -40,12 +40,16 @@ class FirebaseBackend {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       if (!kIsWeb) {
-        // App Check : atteste l'application aupres de Firebase. Sans cette
-        // activation, Play Integrity peut bloquer silencieusement l'envoi
-        // du SMS OTP (observe : « aucune reponse de Firebase Auth »).
+        // App Check : provider adapte au type de build.
+        // - Release (APK signe) : Play Integrity (le provider debug d'un
+        //   APK release echoue silencieusement et peut bloquer Phone Auth
+        //   AVANT toute requete reseau — observe : 0 appel identitytoolkit).
+        // - Debug : provider debug.
         try {
           await FirebaseAppCheck.instance.activate(
-            androidProvider: AndroidProvider.debug,
+            androidProvider: kReleaseMode
+                ? AndroidProvider.playIntegrity
+                : AndroidProvider.debug,
           );
         } catch (e) {
           if (kDebugMode) debugPrint('AppCheck: $e');
