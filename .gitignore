@@ -45,12 +45,9 @@ app.*.map.json
 /android/app/release
 
 # Signature Android : ne JAMAIS versionner la cle ni les mots de passe
-android/key.properties
-*.jks
 *.keystore
 
 # Configuration Firebase (contient des identifiants de projet)
-android/app/google-services.json
 **/firebase-admin-sdk*.json
 *.bak
 
@@ -58,3 +55,4 @@ android/app/google-services.json
 functions/node_modules/
 firebase-debug.log
 .firebase/
+secrets/firebase-admin-sdk.json

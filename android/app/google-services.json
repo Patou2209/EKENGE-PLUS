@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "677245357032",
+    "project_id": "ekenge-plus",
+    "storage_bucket": "ekenge-plus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:677245357032:android:d50062fb4ecd031d70f25d",
+        "android_client_info": {
+          "package_name": "com.ekengeplus.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "677245357032-e8isq79o151b6q4qh5bhecd3pfvsvmg4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ekengeplus.app",
+            "certificate_hash": "82d3f93b3ab0db9a20b6c43359fe6028424a34ea"
+          }
+        },
+        {
+          "client_id": "677245357032-0k3g1dbatkcn6e6bl5hvl3k6qti77rkh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-ehkmWb0936Iz43zfxJS6PuEHyzqY7DM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "677245357032-0k3g1dbatkcn6e6bl5hvl3k6qti77rkh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
