@@ -54,10 +54,15 @@ class FirebaseBackend {
         } catch (e) {
           if (kDebugMode) debugPrint('AppCheck: $e');
         }
-        // Flux Phone Auth silencieux (pas de page reCAPTCHA).
+        // APK distribue HORS Play Store (sideload) : Play Integrity ne peut
+        // pas attester l'application (elle n'est pas reconnue par Google
+        // Play) et le SDK reste suspendu sans callback. On force le flux
+        // reCAPTCHA : une page de verification s'ouvre brievement dans le
+        // navigateur, puis le SMS part. C'est le flux officiel pour les APK
+        // sideloades. (A remettre a false lors de la publication Play Store.)
         try {
           await fa.FirebaseAuth.instance.setSettings(
-            forceRecaptchaFlow: false,
+            forceRecaptchaFlow: true,
             appVerificationDisabledForTesting: false,
           );
         } catch (_) {}
