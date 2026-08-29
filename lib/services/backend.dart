@@ -47,9 +47,27 @@ class Backend {
     return null;
   }
 
+  /// Normalise un numero au format E.164 attendu par Firebase Phone Auth.
+  /// Gere le piege classique du 0 national :
+  ///   '0812345678'      -> '+243812345678'
+  ///   '081 234 5678'    -> '+243812345678'
+  ///   '00243812345678'  -> '+243812345678'
+  ///   '+2430812345678'  -> '+243812345678' (0 apres l'indicatif supprime)
+  ///   '243812345678'    -> '+243812345678'
   static String normalizePhone(String raw) {
     var s = raw.replaceAll(RegExp(r'[\s\-\.\(\)]'), '');
     if (s.startsWith('00')) s = '+${s.substring(2)}';
+    if (!s.startsWith('+')) {
+      if (s.startsWith('243')) {
+        // Indicatif deja saisi sans le +.
+        s = '+$s';
+      } else {
+        // Numero local : supprimer le(s) 0 en tete, prefixer +243 (RDC).
+        s = '+243${s.replaceFirst(RegExp(r'^0+'), '')}';
+      }
+    }
+    // '+2430812...' -> '+243812...' (0 national colle a l'indicatif).
+    s = s.replaceFirst(RegExp(r'^\+2430+'), '+243');
     return s;
   }
 
