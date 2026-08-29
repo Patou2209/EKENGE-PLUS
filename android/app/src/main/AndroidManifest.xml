@@ -60,6 +60,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Firebase App Check — debug token pour APK sideload (hors Play Store) -->
+        <!-- Ce token permet de valider l'app meme sans Play Store (recette ImmoZone) -->
+        <!-- Token enregistre dans Firebase Console → App Check → Debug tokens -->
+        <meta-data
+            android:name="com.google.firebase.appcheck.debug.force_debug_token"
+            android:value="894BFB29-E3BD-429A-8745-3A3D87E6EE9C" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

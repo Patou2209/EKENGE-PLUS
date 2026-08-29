@@ -40,29 +40,25 @@ class FirebaseBackend {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       if (!kIsWeb) {
-        // App Check : provider adapte au type de build.
-        // - Release (APK signe) : Play Integrity (le provider debug d'un
-        //   APK release echoue silencieusement et peut bloquer Phone Auth
-        //   AVANT toute requete reseau — observe : 0 appel identitytoolkit).
-        // - Debug : provider debug.
+        // App Check — RECETTE IMMOZONE pour APK sideloade (hors Play Store) :
+        // provider debug + token force dans AndroidManifest.xml
+        // (com.google.firebase.appcheck.debug.force_debug_token), token
+        // enregistre dans Firebase Console → App Check → Debug tokens.
+        // Ainsi l'app est attestee sans Play Store et le SMS OTP part.
+        // MISE EN PRODUCTION (Play Store) : passer a
+        // AndroidProvider.playIntegrity et retirer le meta-data du manifest.
         try {
           await FirebaseAppCheck.instance.activate(
-            androidProvider: kReleaseMode
-                ? AndroidProvider.playIntegrity
-                : AndroidProvider.debug,
+            androidProvider: AndroidProvider.debug,
           );
         } catch (e) {
           if (kDebugMode) debugPrint('AppCheck: $e');
         }
-        // APK distribue HORS Play Store (sideload) : Play Integrity ne peut
-        // pas attester l'application (elle n'est pas reconnue par Google
-        // Play) et le SDK reste suspendu sans callback. On force le flux
-        // reCAPTCHA : une page de verification s'ouvre brievement dans le
-        // navigateur, puis le SMS part. C'est le flux officiel pour les APK
-        // sideloades. (A remettre a false lors de la publication Play Store.)
+        // Flux Phone Auth silencieux (pas de page reCAPTCHA) — l'attestation
+        // passe par le debug token App Check ci-dessus (recette ImmoZone).
         try {
           await fa.FirebaseAuth.instance.setSettings(
-            forceRecaptchaFlow: true,
+            forceRecaptchaFlow: false,
             appVerificationDisabledForTesting: false,
           );
         } catch (_) {}
