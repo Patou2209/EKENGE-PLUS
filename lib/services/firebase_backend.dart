@@ -26,6 +26,8 @@ class FirebaseBackend {
   bool get isReady => _initialized;
 
   fs.FirebaseFirestore get _db => fs.FirebaseFirestore.instance;
+  // Conserve pour l'ancien systeme OTP Firebase (voir bloc commente plus bas).
+  // ignore: unused_element
   fa.FirebaseAuth get _auth => fa.FirebaseAuth.instance;
 
   /// Initialisation au demarrage. Ne lance jamais d'exception : en cas
@@ -75,8 +77,16 @@ class FirebaseBackend {
 
   // =========================================================================
   // §3 Authentification — OTP par VRAI SMS (Firebase Phone Auth)
+  //
+  // ⚠️ ANCIEN SYSTEME OTP — DESACTIVE (remplace par WhatsApp Cloud API,
+  //    voir lib/services/whatsapp_otp.dart). CONSERVE POUR USAGE FUTUR :
+  //    ce flux est FONCTIONNEL (App Check debug token via MainActivity.kt
+  //    + Enforcement ENFORCED sur Authentication). Pour le reactiver,
+  //    decommenter ce bloc et retablir les appels dans ek_state.dart
+  //    (startOtp / verifyOtp).
   // =========================================================================
 
+  /*
   String? _verificationId;
   int? _resendToken;
 
@@ -189,6 +199,8 @@ class FirebaseBackend {
         return 'Erreur [${e.code}] : ${e.message ?? ''}';
     }
   }
+  */
+  // ======================= FIN ANCIEN SYSTEME OTP ==========================
 
   // =========================================================================
   // Firestore — Utilisateurs (§3)

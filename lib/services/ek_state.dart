@@ -9,6 +9,7 @@ import 'backend.dart';
 import 'contacts_service.dart';
 import 'firebase_backend.dart';
 import 'location_service.dart';
+import 'whatsapp_otp.dart';
 
 /// Notification Push recue par l'utilisateur (§11).
 class PushNotification {
@@ -286,9 +287,11 @@ class EkState extends ChangeNotifier {
   // §3 Authentification
   // =======================================================================
 
-  /// Lance l'envoi du SMS OTP — flux ImmoZone : purement par callbacks.
-  /// L'ecran appelant navigue vers la saisie du code DANS [onCodeSent]
-  /// (le SMS est alors reellement parti). AUCUN mode simule.
+  /// Lance l'envoi du code OTP par WHATSAPP (Meta Cloud API).
+  /// Callbacks identiques a l'ancien flux : l'ecran appelant navigue vers
+  /// la saisie du code DANS [onCodeSent]. [onAutoVerified] n'est jamais
+  /// appele (pas d'auto-validation avec WhatsApp) mais est conserve pour
+  /// ne pas modifier les ecrans.
   Future<void> startOtp({
     required String phone,
     required void Function() onCodeSent,
@@ -298,37 +301,69 @@ class EkState extends ChangeNotifier {
   }) {
     _log(
       EkEventType.otpSent,
-      'Envoi du SMS',
-      'Demande de code OTP par SMS pour $phone (Firebase Auth)',
+      'Envoi du code WhatsApp',
+      'Demande de code OTP par WhatsApp pour $phone',
     );
-    return _fb.startPhoneVerification(
+    return WhatsAppOtp.instance.sendOtp(
       phone: phone,
-      isResend: isResend,
       onCodeSent: () {
         _log(
           EkEventType.otpSent,
-          'SMS envoye',
-          'Code OTP envoye par SMS a $phone (Firebase Auth)',
+          'Code envoye',
+          'Code OTP envoye par WhatsApp a $phone',
         );
         onCodeSent();
       },
-      onAutoVerified: onAutoVerified,
       onFailed: onFailed,
     );
+
+    // -----------------------------------------------------------------------
+    // ANCIEN SYSTEME OTP — Firebase Phone Auth (SMS) — CONSERVE POUR PLUS TARD
+    // Fonctionnel (App Check debug token + Enforcement), desactive au profit
+    // de WhatsApp. Pour le reactiver : decommenter ci-dessous et supprimer
+    // l'appel WhatsAppOtp ci-dessus.
+    // -----------------------------------------------------------------------
+    // return _fb.startPhoneVerification(
+    //   phone: phone,
+    //   isResend: isResend,
+    //   onCodeSent: () {
+    //     _log(
+    //       EkEventType.otpSent,
+    //       'SMS envoye',
+    //       'Code OTP envoye par SMS a $phone (Firebase Auth)',
+    //     );
+    //     onCodeSent();
+    //   },
+    //   onAutoVerified: onAutoVerified,
+    //   onFailed: onFailed,
+    // );
   }
 
-  /// Verifie le code recu par SMS aupres de Firebase Auth — unique source
-  /// de verite (identique a ImmoZone).
+  /// Verifie le code OTP saisi — verification locale WhatsApp
+  /// (hash SHA-256 + expiration 10 minutes).
   Future<bool> verifyOtp(String phone, String code) async {
-    final ok = await _fb.verifyRealOtp(code);
+    final ok = WhatsAppOtp.instance.verifyOtp(phone, code);
     if (ok) {
       _log(
         EkEventType.otpVerified,
         'Numero verifie',
-        'Code OTP valide pour $phone (SMS Firebase)',
+        'Code OTP valide pour $phone (WhatsApp)',
       );
     }
     return ok;
+
+    // -----------------------------------------------------------------------
+    // ANCIEN SYSTEME OTP — Firebase Phone Auth (SMS) — CONSERVE POUR PLUS TARD
+    // -----------------------------------------------------------------------
+    // final ok = await _fb.verifyRealOtp(code);
+    // if (ok) {
+    //   _log(
+    //     EkEventType.otpVerified,
+    //     'Numero verifie',
+    //     'Code OTP valide pour $phone (SMS Firebase)',
+    //   );
+    // }
+    // return ok;
   }
 
   Future<void> completeRegistration({
