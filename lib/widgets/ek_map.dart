@@ -28,9 +28,10 @@ class MapMarker {
 
 /// EKENGE PLUS — Carte interactive REELLE (§6, §12 « Carte interactive »).
 ///
-/// Fond de carte OpenStreetMap (tuiles CARTO sombre, sans cle API) via
-/// flutter_map. Zoom, deplacement, trajet parcouru et marqueurs des proches
-/// en temps reel. Le style sombre est raccord avec le design de l'app.
+/// Fond de carte OpenStreetMap CLAIR (tuiles officielles, sans cle API) via
+/// flutter_map — le meme rendu blanc et lisible que la carte web de suivi
+/// (ekenge-plus.web.app). Zoom, deplacement, trajet parcouru et marqueurs
+/// des proches en temps reel.
 class EkMap extends StatefulWidget {
   final List<MapMarker> markers;
   final List<GeoPoint> trail;
@@ -107,7 +108,7 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
       child: Container(
         height: widget.height,
         decoration: BoxDecoration(
-          color: const Color(0xFF0B0E13),
+          color: const Color(0xFFE9EDF1), // fond clair pendant le chargement
           border: Border.all(color: Ek.hairline),
           borderRadius: BorderRadius.circular(Ek.r20),
         ),
@@ -120,7 +121,7 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
                 initialZoom: _zoom,
                 minZoom: 3,
                 maxZoom: 19,
-                backgroundColor: const Color(0xFF0B0E13),
+                backgroundColor: const Color(0xFFE9EDF1),
                 interactionOptions: fm.InteractionOptions(
                   flags: widget.interactive
                       ? fm.InteractiveFlag.all & ~fm.InteractiveFlag.rotate
@@ -137,20 +138,11 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
               ),
               children: [
                 // Tuiles officielles OpenStreetMap (gratuites, sans cle API),
-                // assombries par filtre pour rester raccord avec le design.
-                ColorFiltered(
-                  colorFilter: const ColorFilter.matrix(<double>[
-                    -0.30, -0.59, -0.11, 0, 255, //
-                    -0.30, -0.59, -0.11, 0, 255, //
-                    -0.30, -0.59, -0.11, 0, 255, //
-                    0, 0, 0, 1, 0,
-                  ]),
-                  child: fm.TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.ekengeplus.app',
-                    maxNativeZoom: 19,
-                  ),
+                // affichees en clair — identiques a la carte web de suivi.
+                fm.TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.ekengeplus.app',
+                  maxNativeZoom: 19,
                 ),
                 // Trajet parcouru (§6 : deplacement mis a jour en temps reel).
                 if (widget.trail.length > 1)
@@ -198,8 +190,8 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
               bottom: 6,
               child: IgnorePointer(
                 child: Text(
-                  '© OpenStreetMap · CARTO',
-                  style: Ek.over(size: 7.5, color: Ek.textTertiary),
+                  '© OpenStreetMap',
+                  style: Ek.over(size: 7.5, color: Color(0xFF5B6470)),
                 ),
               ),
             ),

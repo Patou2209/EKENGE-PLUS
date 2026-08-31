@@ -12,6 +12,12 @@ import '../models/models.dart';
 /// GPS REEL via le paquet `geolocator`. Si la permission est refusee ou que
 /// le materiel GPS est indisponible (preview web), le service bascule sur un
 /// flux de positions simule afin que l'application reste utilisable.
+///
+/// SUIVI EN ARRIERE-PLAN (§13 Background Location Services) : sur Android,
+/// le flux GPS est adosse a un FOREGROUND SERVICE natif avec notification
+/// persistante « EKENGE PLUS vous protege ». La position continue donc
+/// d'etre transmise a Firestore (et a la carte web de suivi) meme quand
+/// l'application est en arriere-plan ou l'ecran verrouille.
 class LocationService {
   LocationService._();
   static final LocationService instance = LocationService._();
@@ -91,10 +97,7 @@ class LocationService {
     if (_realGps && !kIsWeb) {
       _gpsSub?.cancel();
       _gpsSub = geo.Geolocator.getPositionStream(
-        locationSettings: const geo.LocationSettings(
-          accuracy: geo.LocationAccuracy.high,
-          distanceFilter: 5, // mise a jour tous les 5 metres
-        ),
+        locationSettings: _settings(),
       ).listen(
         (p) {
           _lat = p.latitude;
@@ -114,6 +117,38 @@ class LocationService {
     } else {
       _startSimulation(interval);
     }
+  }
+
+  /// Parametres de localisation par plateforme. Sur Android, active le
+  /// FOREGROUND SERVICE natif de geolocator : notification persistante
+  /// obligatoire qui maintient le GPS actif ecran verrouille / app en fond.
+  geo.LocationSettings _settings() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return geo.AndroidSettings(
+        accuracy: geo.LocationAccuracy.high,
+        distanceFilter: 5, // mise a jour tous les 5 metres
+        intervalDuration: const Duration(seconds: 5),
+        // Notification persistante : le systeme ne peut pas tuer le suivi.
+        foregroundNotificationConfig: const geo.ForegroundNotificationConfig(
+          notificationTitle: 'EKENGE PLUS vous protege',
+          notificationText:
+              'Partage de position en cours — vos proches peuvent vous suivre '
+              'en temps reel, meme ecran verrouille.',
+          notificationIcon: geo.AndroidResource(
+            name: 'ic_launcher',
+            defType: 'mipmap',
+          ),
+          notificationChannelName: 'Suivi de localisation EKENGE PLUS',
+          enableWakeLock: true, // le CPU reste actif pour transmettre
+          enableWifiLock: true, // la connexion reste active pour Firestore
+          setOngoing: true, // notification non balayable pendant le suivi
+        ),
+      );
+    }
+    return const geo.LocationSettings(
+      accuracy: geo.LocationAccuracy.high,
+      distanceFilter: 5,
+    );
   }
 
   void _startSimulation(Duration interval) {

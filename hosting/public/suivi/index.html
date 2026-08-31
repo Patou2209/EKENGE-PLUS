@@ -6,55 +6,56 @@
 <title>EKENGE PLUS — Suivi en temps réel</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  :root { --accent:#19c8a8; --danger:#e5484d; --bg:#0b0e13; }
+  :root { --accent:#0d9b83; --danger:#e5484d; --bg:#e9edf1; }
   * { margin:0; padding:0; box-sizing:border-box; }
   html,body { height:100%; background:var(--bg); font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
   #map { position:fixed; inset:0; z-index:1; background:var(--bg); }
-  /* Assombrit les tuiles OSM pour le style EKENGE */
-  .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.4); }
+  /* Carte claire : tuiles OpenStreetMap affichees telles quelles */
   .topbar {
     position:fixed; top:0; left:0; right:0; z-index:1000;
     display:flex; align-items:center; gap:12px;
     padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
-    background:linear-gradient(180deg, rgba(11,14,19,0.95), rgba(11,14,19,0.75) 70%, transparent);
+    background:linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.80) 70%, transparent);
   }
   .btn {
     display:flex; align-items:center; justify-content:center; gap:6px;
-    height:40px; padding:0 16px; border:1px solid rgba(255,255,255,0.14);
-    border-radius:12px; background:rgba(20,25,33,0.92); color:#e8eaed;
+    height:40px; padding:0 16px; border:1px solid rgba(0,0,0,0.12);
+    border-radius:12px; background:rgba(255,255,255,0.95); color:#1c2430;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
     font-size:14px; font-weight:600; cursor:pointer; text-decoration:none;
     -webkit-tap-highlight-color:transparent;
   }
   .btn:active { transform:scale(0.97); }
-  .btn.quit { border-color:rgba(229,72,77,0.5); color:#ff8589; }
-  .brand { flex:1; text-align:center; font-weight:800; letter-spacing:1px; color:#fff; font-size:15px; }
+  .btn.quit { border-color:rgba(229,72,77,0.45); color:#d33338; }
+  .brand { flex:1; text-align:center; font-weight:800; letter-spacing:1px; color:#111826; font-size:15px; }
   .brand span { color:var(--accent); }
   .status {
     position:fixed; left:12px; right:12px; z-index:1000;
     bottom:calc(12px + env(safe-area-inset-bottom));
-    background:rgba(20,25,33,0.94); border:1px solid rgba(255,255,255,0.12);
-    border-radius:16px; padding:14px 16px; color:#e8eaed;
+    background:rgba(255,255,255,0.97); border:1px solid rgba(0,0,0,0.10);
+    border-radius:16px; padding:14px 16px; color:#1c2430;
+    box-shadow:0 4px 18px rgba(0,0,0,0.12);
   }
   .status .name { font-size:15px; font-weight:700; margin-bottom:4px; }
-  .status .meta { font-size:12.5px; color:#9aa2ad; line-height:1.5; }
+  .status .meta { font-size:12.5px; color:#5b6470; line-height:1.5; }
   .live { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent);
           margin-right:6px; animation:pulse 1.6s infinite; vertical-align:1px; }
-  .live.off { background:#9aa2ad; animation:none; }
+  .live.off { background:#8a93a0; animation:none; }
   @keyframes pulse { 0%{opacity:1} 50%{opacity:0.3} 100%{opacity:1} }
   .center-overlay {
     position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center;
-    flex-direction:column; gap:14px; background:var(--bg); color:#e8eaed; text-align:center; padding:24px;
+    flex-direction:column; gap:14px; background:var(--bg); color:#1c2430; text-align:center; padding:24px;
   }
   .center-overlay h2 { font-size:18px; }
-  .center-overlay p { font-size:14px; color:#9aa2ad; max-width:320px; line-height:1.6; }
-  .spinner { width:34px; height:34px; border-radius:50%; border:3px solid rgba(255,255,255,0.15);
+  .center-overlay p { font-size:14px; color:#5b6470; max-width:320px; line-height:1.6; }
+  .spinner { width:34px; height:34px; border-radius:50%; border:3px solid rgba(0,0,0,0.10);
              border-top-color:var(--accent); animation:spin 0.9s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg) } }
   .hidden { display:none !important; }
   .marker-pin { position:relative; }
   .marker-pin .dot {
     width:22px; height:22px; border-radius:50%; background:var(--accent);
-    border:3px solid #fff; box-shadow:0 0 18px rgba(25,200,168,0.8);
+    border:3px solid #fff; box-shadow:0 0 14px rgba(13,155,131,0.65);
   }
   .marker-pin .ring {
     position:absolute; top:50%; left:50%; width:22px; height:22px; border-radius:50%;
@@ -133,7 +134,7 @@ function initMap(lat, lng) {
     iconAnchor: [11, 11],
   });
   marker = L.marker([lat, lng], { icon }).addTo(map);
-  trailLine = L.polyline([], { color: '#19c8a8', weight: 3, opacity: 0.9 }).addTo(map);
+  trailLine = L.polyline([], { color: '#0d9b83', weight: 3, opacity: 0.9 }).addTo(map);
 }
 
 function update(lat, lng, name, at, live) {
@@ -154,7 +155,7 @@ function update(lat, lng, name, at, live) {
     (live ? 'Suivi en temps réel actif' : 'Partage arrêté — dernière position connue') +
     ` · Mise à jour : ${when}` +
     `<br>${lat.toFixed(5)}, ${lng.toFixed(5)} · ` +
-    `<a style="color:#19c8a8" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank">Ouvrir dans Google Maps</a>`;
+    `<a style="color:#0d9b83;font-weight:600" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank">Ouvrir dans Google Maps</a>`;
 }
 
 function notFound(msg) {
