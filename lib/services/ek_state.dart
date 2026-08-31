@@ -634,7 +634,10 @@ class EkState extends ChangeNotifier {
   // §6 Fonction Tracking
   // =======================================================================
   Future<void> startTracking({bool notify = true, String? reason}) async {
-    if (!locationPermission) {
+    // La vraie demande de permission Android (geolocator) doit etre faite
+    // au moins une fois par session, meme si un ancien etat persiste
+    // pretend que la permission est deja accordee.
+    if (!locationPermission || !LocationService.instance.permissionGranted) {
       final ok = await requestLocationPermission();
       if (!ok) return;
     }
@@ -727,7 +730,9 @@ class EkState extends ChangeNotifier {
   // =======================================================================
   Future<void> triggerDanger() async {
     final now = DateTime.now();
-    if (!locationPermission) await requestLocationPermission();
+    if (!locationPermission || !LocationService.instance.permissionGranted) {
+      await requestLocationPermission();
+    }
 
     // Le suivi en temps reel est automatiquement active.
     if (!trackingActive) {

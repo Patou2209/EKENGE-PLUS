@@ -136,13 +136,21 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
                 },
               ),
               children: [
-                fm.TileLayer(
-                  // Fond sombre CARTO (base OpenStreetMap, sans cle API).
-                  urlTemplate:
-                      'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c', 'd'],
-                  userAgentPackageName: 'com.ekengeplus.app',
-                  retinaMode: fm.RetinaMode.isHighDensity(context),
+                // Tuiles officielles OpenStreetMap (gratuites, sans cle API),
+                // assombries par filtre pour rester raccord avec le design.
+                ColorFiltered(
+                  colorFilter: const ColorFilter.matrix(<double>[
+                    -0.30, -0.59, -0.11, 0, 255, //
+                    -0.30, -0.59, -0.11, 0, 255, //
+                    -0.30, -0.59, -0.11, 0, 255, //
+                    0, 0, 0, 1, 0,
+                  ]),
+                  child: fm.TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.ekengeplus.app',
+                    maxNativeZoom: 19,
+                  ),
                 ),
                 // Trajet parcouru (§6 : deplacement mis a jour en temps reel).
                 if (widget.trail.length > 1)

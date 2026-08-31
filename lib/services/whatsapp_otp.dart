@@ -19,6 +19,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
@@ -37,6 +38,67 @@ class WhatsAppOtp {
       'muZC6TPAhZCXVpTmx4ZAAZDZD';
 
   static const Duration _validity = Duration(minutes: 10);
+
+  // --- Jeton dynamique -------------------------------------------------------
+  // Le jeton est lu en priorite dans Firestore (app_config/whatsapp,
+  // champ access_token) : il peut ainsi etre renouvele SANS reinstaller
+  // l'application. La constante _accessToken sert de secours.
+  String? _cachedToken;
+
+  Future<String> _token({bool refresh = false}) async {
+    if (!refresh && _cachedToken != null) return _cachedToken!;
+    try {
+      final doc = await fs.FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('whatsapp')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      final t = doc.data()?['access_token'] as String?;
+      if (t != null && t.isNotEmpty) {
+        _cachedToken = t;
+        return t;
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[WhatsApp] lecture jeton Firestore : $e');
+    }
+    _cachedToken = _accessToken;
+    return _accessToken;
+  }
+
+  /// Envoi brut vers l'API Meta. Retourne (statusCode, corps).
+  Future<(int, String)> _post(String token, String jsonBody) async {
+    final client = HttpClient();
+    try {
+      final req = await client.postUrl(
+        Uri.parse(
+          'https://graph.facebook.com/v25.0/$_phoneNumberId/messages',
+        ),
+      );
+      req.headers.set('Authorization', 'Bearer $token');
+      req.headers.contentType = ContentType.json;
+      req.write(jsonBody);
+      final res = await req.close().timeout(const Duration(seconds: 30));
+      final resBody = await res.transform(utf8.decoder).join();
+      return (res.statusCode, resBody);
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Envoie [jsonBody] ; si Meta repond « jeton invalide » (190/131005),
+  /// recharge le jeton depuis Firestore et retente UNE fois.
+  Future<(int, String)> _postWithRetry(String jsonBody) async {
+    var token = await _token();
+    var (status, body) = await _post(token, jsonBody);
+    if (status != 200 && (body.contains('"code":190') ||
+        body.contains('"code":131005'))) {
+      final fresh = await _token(refresh: true);
+      if (fresh != token) {
+        (status, body) = await _post(fresh, jsonBody);
+      }
+    }
+    return (status, body);
+  }
 
   // --- Numero de test (identique a l'ancien systeme Firebase) ---------------
   static const String _testPhone = '+243900000001';
@@ -84,24 +146,13 @@ class WhatsAppOtp {
     });
 
     try {
-      final client = HttpClient();
-      final req = await client.postUrl(
-        Uri.parse(
-          'https://graph.facebook.com/v25.0/$_phoneNumberId/messages',
-        ),
-      );
-      req.headers.set('Authorization', 'Bearer $_accessToken');
-      req.headers.contentType = ContentType.json;
-      req.write(body);
-      final res = await req.close().timeout(const Duration(seconds: 30));
-      final resBody = await res.transform(utf8.decoder).join();
-      client.close();
+      final (status, resBody) = await _postWithRetry(body);
 
       if (kDebugMode) {
-        debugPrint('[WhatsAppOtp] HTTP ${res.statusCode} : $resBody');
+        debugPrint('[WhatsAppOtp] HTTP $status : $resBody');
       }
 
-      if (res.statusCode == 200) {
+      if (status == 200) {
         _phoneInProgress = phone;
         _codeHash = _hash(code);
         _expiresAt = DateTime.now().add(_validity);
@@ -110,14 +161,13 @@ class WhatsAppOtp {
       }
 
       // Analyse de l'erreur Meta pour un message clair en francais.
-      String message =
-          'Envoi WhatsApp impossible (HTTP ${res.statusCode}).';
+      String message = 'Envoi WhatsApp impossible (HTTP $status).';
       try {
         final err = jsonDecode(resBody)['error'] as Map<String, dynamic>?;
         final errCode = err?['code'];
-        if (errCode == 190) {
-          message = 'Jeton WhatsApp expire. Contactez le support EKENGE '
-              'pour renouveler le jeton d\'acces.';
+        if (errCode == 190 || errCode == 131005) {
+          message = 'Jeton WhatsApp expire ou refuse. Contactez le support '
+              'EKENGE pour renouveler le jeton d\'acces.';
         } else if (errCode == 131030) {
           message = 'Ce numero n\'est pas encore autorise a recevoir les '
               'messages WhatsApp de test. Ajoutez-le comme destinataire '
@@ -147,27 +197,16 @@ class WhatsAppOtp {
   Future<bool> sendText(String phone, String message) async {
     final to = phone.startsWith('+') ? phone.substring(1) : phone;
     try {
-      final client = HttpClient();
-      final req = await client.postUrl(
-        Uri.parse(
-          'https://graph.facebook.com/v25.0/$_phoneNumberId/messages',
-        ),
-      );
-      req.headers.set('Authorization', 'Bearer $_accessToken');
-      req.headers.contentType = ContentType.json;
-      req.write(jsonEncode({
+      final (status, resBody) = await _postWithRetry(jsonEncode({
         'messaging_product': 'whatsapp',
         'to': to,
         'type': 'text',
         'text': {'body': message},
       }));
-      final res = await req.close().timeout(const Duration(seconds: 20));
-      final resBody = await res.transform(utf8.decoder).join();
-      client.close();
       if (kDebugMode) {
-        debugPrint('[WhatsApp] sendText $to HTTP ${res.statusCode} : $resBody');
+        debugPrint('[WhatsApp] sendText $to HTTP $status : $resBody');
       }
-      return res.statusCode == 200;
+      return status == 200;
     } catch (e) {
       if (kDebugMode) debugPrint('[WhatsApp] sendText erreur : $e');
       return false;
