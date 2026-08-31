@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/design.dart';
 import '../models/models.dart';
@@ -184,9 +185,45 @@ class _AlertBanner extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           _SafeConfirmButton(),
+          if (alert.kind == AlertKind.danger) ...[
+            const SizedBox(height: 10),
+            // §7 : lien partageable sur WhatsApp pour permettre a des
+            // personnes hors liste Tracking de suivre le deplacement,
+            // meme sans compte EKENGE.
+            EkButton(
+              label: 'Partager le lien de suivi sur WhatsApp',
+              icon: Icons.share_outlined,
+              outlined: true,
+              color: color,
+              onPressed: () => _shareTrackingLink(context, st),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _shareTrackingLink(BuildContext context, EkState st) async {
+    final link = 'https://ekengeplus.app/suivi/${st.user!.phone}';
+    final text = Uri.encodeComponent(
+      'ALERTE : ${st.user!.fullName} se sent en danger. '
+      'Suivez sa position en temps reel (aucun compte requis) : $link',
+    );
+    final uri = Uri.parse('https://wa.me/?text=$text');
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lien de suivi : $link')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lien de suivi : $link')),
+        );
+      }
+    }
   }
 }
 

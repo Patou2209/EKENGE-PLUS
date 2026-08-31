@@ -1028,6 +1028,8 @@ class EkState extends ChangeNotifier {
       );
       outbox.insert(0, m);
       if (user != null) await _fb.pushMessage(m, user!.phone);
+      // Envoi WhatsApp reel (best-effort).
+      unawaited(WhatsAppOtp.instance.sendText(to.phone, body));
       return;
     }
     final m = await _be.dispatch(
@@ -1039,6 +1041,12 @@ class EkState extends ChangeNotifier {
     outbox.insert(0, m);
     // Trace cloud : base de travail des Cloud Functions (FCM / WhatsApp).
     if (user != null) await _fb.pushMessage(m, user!.phone);
+    // §11/§14 : envoi REEL du message WhatsApp via l'API Meta Cloud
+    // (numero officiel EKENGE). Best-effort : un echec (destinataire non
+    // enregistre sur le compte test) n'interrompt jamais l'alerte.
+    if (channel == Channel.whatsapp) {
+      unawaited(WhatsAppOtp.instance.sendText(to.phone, body));
+    }
     _log(
       EkEventType.notificationSent,
       channel == Channel.push

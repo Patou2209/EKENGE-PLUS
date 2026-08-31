@@ -137,6 +137,43 @@ class WhatsAppOtp {
     }
   }
 
+  /// Envoi d'un message WhatsApp libre (alertes Danger/Safe, invitations,
+  /// confirmations de securite — §5, §7, §9, §10, §11 du cahier des charges).
+  /// Retourne true si Meta a accepte le message. Ne lance jamais d'exception.
+  ///
+  /// ⚠️ Compte test Meta : seuls les destinataires enregistres dans le
+  /// tableau de bord Meta recoivent reellement le message. En production
+  /// (numero officiel EKENGE verifie), tous les numeros seront joignables.
+  Future<bool> sendText(String phone, String message) async {
+    final to = phone.startsWith('+') ? phone.substring(1) : phone;
+    try {
+      final client = HttpClient();
+      final req = await client.postUrl(
+        Uri.parse(
+          'https://graph.facebook.com/v25.0/$_phoneNumberId/messages',
+        ),
+      );
+      req.headers.set('Authorization', 'Bearer $_accessToken');
+      req.headers.contentType = ContentType.json;
+      req.write(jsonEncode({
+        'messaging_product': 'whatsapp',
+        'to': to,
+        'type': 'text',
+        'text': {'body': message},
+      }));
+      final res = await req.close().timeout(const Duration(seconds: 20));
+      final resBody = await res.transform(utf8.decoder).join();
+      client.close();
+      if (kDebugMode) {
+        debugPrint('[WhatsApp] sendText $to HTTP ${res.statusCode} : $resBody');
+      }
+      return res.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[WhatsApp] sendText erreur : $e');
+      return false;
+    }
+  }
+
   /// Verifie le code saisi par l'utilisateur. Retourne true si le code
   /// correspond et n'a pas expire.
   bool verifyOtp(String phone, String code) {

@@ -1,20 +1,22 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart' as geo;
+
 import '../models/models.dart';
 
 /// EKENGE PLUS — Geolocalisation temps reel (§12 « Geolocalisation temps reel »,
 /// §13 Geolocator + Background Location Services).
 ///
-/// En environnement de preview web, le materiel GPS n'est pas disponible : ce
-/// service produit un flux de positions realiste (marche/deplacement urbain)
-/// avec la meme API qu'un `Geolocator.getPositionStream`. Le remplacement par
-/// Geolocator se fait dans cette seule classe.
+/// GPS REEL via le paquet `geolocator`. Si la permission est refusee ou que
+/// le materiel GPS est indisponible (preview web), le service bascule sur un
+/// flux de positions simule afin que l'application reste utilisable.
 class LocationService {
   LocationService._();
   static final LocationService instance = LocationService._();
 
-  /// Point de depart : Kinshasa, commune de la Gombe.
+  /// Point de depart du mode simule : Kinshasa, commune de la Gombe.
   static const double _originLat = -4.3217;
   static const double _originLng = 15.3125;
 
@@ -22,12 +24,17 @@ class LocationService {
   final StreamController<GeoPoint> _ctrl =
       StreamController<GeoPoint>.broadcast();
   Timer? _timer;
+  StreamSubscription<geo.Position>? _gpsSub;
 
   double _lat = _originLat;
   double _lng = _originLng;
   double _heading = 0.9;
   bool _permissionGranted = false;
   bool _running = false;
+
+  /// true = GPS materiel actif ; false = flux simule (preview / refus).
+  bool _realGps = false;
+  bool get usingRealGps => _realGps;
 
   Stream<GeoPoint> get stream => _ctrl.stream;
   bool get isRunning => _running;
@@ -38,9 +45,40 @@ class LocationService {
 
   double _lastSpeed = 0;
 
-  /// §15 Gestion stricte des permissions mobiles.
+  /// §15 Gestion stricte des permissions mobiles : vraie demande Android
+  /// (boite de dialogue systeme). Retourne true meme en cas de refus afin
+  /// de ne pas bloquer l'app : le mode simule prend alors le relais.
   Future<bool> requestPermission() async {
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (kIsWeb) {
+      _permissionGranted = true;
+      _realGps = false;
+      return true;
+    }
+    try {
+      final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
+      var permission = await geo.Geolocator.checkPermission();
+      if (permission == geo.LocationPermission.denied) {
+        permission = await geo.Geolocator.requestPermission();
+      }
+      final granted = permission == geo.LocationPermission.whileInUse ||
+          permission == geo.LocationPermission.always;
+      _realGps = granted && serviceEnabled;
+      if (_realGps) {
+        // Position initiale immediate pour centrer la carte.
+        try {
+          final p = await geo.Geolocator.getCurrentPosition(
+            locationSettings: const geo.LocationSettings(
+              accuracy: geo.LocationAccuracy.high,
+            ),
+          ).timeout(const Duration(seconds: 10));
+          _lat = p.latitude;
+          _lng = p.longitude;
+        } catch (_) {}
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Location] permission: $e');
+      _realGps = false;
+    }
     _permissionGranted = true;
     return true;
   }
@@ -49,6 +87,36 @@ class LocationService {
   void start({Duration interval = const Duration(seconds: 3)}) {
     if (_running) return;
     _running = true;
+
+    if (_realGps && !kIsWeb) {
+      _gpsSub?.cancel();
+      _gpsSub = geo.Geolocator.getPositionStream(
+        locationSettings: const geo.LocationSettings(
+          accuracy: geo.LocationAccuracy.high,
+          distanceFilter: 5, // mise a jour tous les 5 metres
+        ),
+      ).listen(
+        (p) {
+          _lat = p.latitude;
+          _lng = p.longitude;
+          _lastSpeed = (p.speed * 3.6).clamp(0, 300); // m/s -> km/h
+          _ctrl.add(current);
+        },
+        onError: (Object e) {
+          if (kDebugMode) debugPrint('[Location] GPS stream: $e');
+          // Panne GPS en cours de route : bascule sur la simulation.
+          _realGps = false;
+          _startSimulation(interval);
+        },
+      );
+      // Premiere emission immediate.
+      _ctrl.add(current);
+    } else {
+      _startSimulation(interval);
+    }
+  }
+
+  void _startSimulation(Duration interval) {
     _timer?.cancel();
     _emit();
     _timer = Timer.periodic(interval, (_) => _emit());
@@ -59,11 +127,13 @@ class LocationService {
     _running = false;
     _timer?.cancel();
     _timer = null;
+    _gpsSub?.cancel();
+    _gpsSub = null;
     _lastSpeed = 0;
   }
 
   void _emit() {
-    // Deplacement pedestre : ~4 a 6 km/h avec legere derive de cap.
+    // Deplacement pedestre simule : ~4 a 6 km/h avec legere derive de cap.
     _heading += (_rnd.nextDouble() - 0.5) * 0.5;
     final speed = 3.5 + _rnd.nextDouble() * 2.5;
     _lastSpeed = speed;
@@ -78,8 +148,8 @@ class LocationService {
     final a = _rnd.nextDouble() * 2 * pi;
     final d = radiusMetres * (0.25 + _rnd.nextDouble() * 0.75);
     return GeoPoint(
-      lat: _originLat + cos(a) * d / 111320,
-      lng: _originLng + sin(a) * d / (111320 * cos(_originLat * pi / 180)),
+      lat: _lat + cos(a) * d / 111320,
+      lng: _lng + sin(a) * d / (111320 * cos(_lat * pi / 180)),
       at: DateTime.now(),
       speedKmh: _rnd.nextDouble() * 6,
     );

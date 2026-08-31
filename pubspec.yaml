@@ -30,6 +30,9 @@ dependencies:
   permission_handler: ^11.3.1
   # Retour haptique du bouton Danger (§7)
   vibration: ^2.0.0
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:
