@@ -30,11 +30,11 @@ class WhatsAppOtp {
   static const String _phoneNumberId = '1202711136269311';
   // TODO(production) : remplacer par un System User token permanent.
   static const String _accessToken =
-      'EAATgUQZB8y1cBSa6ZCno3j8o8NRAJ7IRiloJETUUm1UkJ7ZClbsIM2WckWZCYrO4aF'
-      'JZAF5ZASFF87nJZAedh6LzZCYQLWBRcD8geGTTq2UMUcnYbMkM9gfEW5Kpbm7vHCJPz'
-      'CSAo07TrAzUqlSrI5AKx7I1z6WyZAilGuZBRa32Eed0LEVsZAD3xMHD9lFic7WtVnh8'
-      'tv7OCgZCIPAi5UKI23D97nZBpdeukL2EwnPmKaatjpy9dkQ0LaHCW5IeAPjNxBSKtPZ'
-      'BpTGsGeifJmkE818xZB5';
+      'EAATgUQZB8y1cBSVzgutG4CnEcyKgvSioESxZBq9kYqQZAPWgFBJ027vq1TOL4YYpd'
+      'NOvhUdrItKL526z8r0wYoSFYkQw0kfL6KFS8suZByqmNgot7YIYgTq2ACvhmZCMyIx'
+      'WMTvOyIDkp94dgHZCyKGqWZAQvBON5lXm4VYzXKbp6cNcd6oG8O09QPDfn58hvagoy'
+      '8qop2dcMTh8p7wzLoK3fV28lmwr1MOnN2tGG0inSQ3uPyy7xLT01SRQFUvfXcc8Dun'
+      'muZC6TPAhZCXVpTmx4ZAAZDZD';
 
   static const Duration _validity = Duration(minutes: 10);
 
