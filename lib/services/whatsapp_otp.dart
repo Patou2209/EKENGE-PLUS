@@ -27,15 +27,15 @@ class WhatsAppOtp {
   WhatsAppOtp._();
   static final WhatsAppOtp instance = WhatsAppOtp._();
 
-  // --- Identifiants WhatsApp Cloud API (compte test Meta) -------------------
+  // --- Identifiants WhatsApp Cloud API --------------------------------------
   static const String _phoneNumberId = '1202711136269311';
-  // TODO(production) : remplacer par un System User token permanent.
+  // Jeton PERMANENT (System User, n'expire jamais) — verifie le 2025-08-31.
+  // Peut aussi etre mis a jour a distance via Firestore app_config/whatsapp.
   static const String _accessToken =
-      'EAATgUQZB8y1cBSVzgutG4CnEcyKgvSioESxZBq9kYqQZAPWgFBJ027vq1TOL4YYpd'
-      'NOvhUdrItKL526z8r0wYoSFYkQw0kfL6KFS8suZByqmNgot7YIYgTq2ACvhmZCMyIx'
-      'WMTvOyIDkp94dgHZCyKGqWZAQvBON5lXm4VYzXKbp6cNcd6oG8O09QPDfn58hvagoy'
-      '8qop2dcMTh8p7wzLoK3fV28lmwr1MOnN2tGG0inSQ3uPyy7xLT01SRQFUvfXcc8Dun'
-      'muZC6TPAhZCXVpTmx4ZAAZDZD';
+      'EAATgUQZB8y1cBSSdz4WeHdAd7jkxL7tnFEEOCBhX1uF4opBDuKtdWJwdHat7r5wM7'
+      'FPUo84Lai4oKEeWWZCO0Aut6XeaumhIk4NIA7wLH1KydYoc74ZBLy7ei3ZBUQ6ZC1x'
+      'psZCIgz7xBzV0JP5Ml9U9njZCqH6bQNUomoZALw6K2gKa8Nk410h5VdZAZB36vZB6g'
+      'ZDZD';
 
   static const Duration _validity = Duration(minutes: 10);
 
