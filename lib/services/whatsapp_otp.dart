@@ -15,6 +15,7 @@
 //    compte n'est pas passe en production (Etape 2/3 Meta).
 // =============================================================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -135,7 +136,36 @@ class WhatsAppOtp {
 
     final code = _generateCode();
     final to = phone.startsWith('+') ? phone.substring(1) : phone;
-    final body = jsonEncode({
+
+    // ⚠️ LIVRAISON WhatsApp : un message TEXTE LIBRE n'est remis que si le
+    // destinataire a ecrit au numero EKENGE dans les dernieres 24 h
+    // (fenetre de session Meta). Un MODELE (template) approuve est remis
+    // SANS session. Le compte test ne permet pas de creer un modele
+    // AUTHENTICATION : on utilise donc le modele UTILITY pre-approuve
+    // (jaspers_market_order_confirmation_v1) pour transporter le code.
+    // TODO(production) : remplacer par un vrai modele AUTHENTICATION
+    // une fois le WABA de production actif.
+    final templateBody = jsonEncode({
+      'messaging_product': 'whatsapp',
+      'to': to,
+      'type': 'template',
+      'template': {
+        'name': 'jaspers_market_order_confirmation_v1',
+        'language': {'code': 'en_US'},
+        'components': [
+          {
+            'type': 'body',
+            'parameters': [
+              {'type': 'text', 'text': 'EKENGE PLUS'},
+              {'type': 'text', 'text': 'votre code de verification : $code'},
+              {'type': 'text', 'text': 'valable 10 minutes'},
+            ],
+          },
+        ],
+      },
+    });
+    // Message texte clair (remis en plus si une session est ouverte).
+    final textBody = jsonEncode({
       'messaging_product': 'whatsapp',
       'to': to,
       'type': 'text',
@@ -146,7 +176,9 @@ class WhatsAppOtp {
     });
 
     try {
-      final (status, resBody) = await _postWithRetry(body);
+      final (status, resBody) = await _postWithRetry(templateBody);
+      // Texte libre en bonus (best-effort, ne conditionne pas le succes).
+      unawaited(_postWithRetry(textBody).catchError((_) => (0, '')));
 
       if (kDebugMode) {
         debugPrint('[WhatsAppOtp] HTTP $status : $resBody');

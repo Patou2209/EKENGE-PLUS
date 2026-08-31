@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>EKENGE PLUS — Suivi en temps réel</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --accent:#19c8a8; --danger:#e5484d; --bg:#0b0e13; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:var(--bg); font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  #map { position:fixed; inset:0; z-index:1; background:var(--bg); }
+  /* Assombrit les tuiles OSM pour le style EKENGE */
+  .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.4); }
+  .topbar {
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    display:flex; align-items:center; gap:12px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+    background:linear-gradient(180deg, rgba(11,14,19,0.95), rgba(11,14,19,0.75) 70%, transparent);
+  }
+  .btn {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    height:40px; padding:0 16px; border:1px solid rgba(255,255,255,0.14);
+    border-radius:12px; background:rgba(20,25,33,0.92); color:#e8eaed;
+    font-size:14px; font-weight:600; cursor:pointer; text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn:active { transform:scale(0.97); }
+  .btn.quit { border-color:rgba(229,72,77,0.5); color:#ff8589; }
+  .brand { flex:1; text-align:center; font-weight:800; letter-spacing:1px; color:#fff; font-size:15px; }
+  .brand span { color:var(--accent); }
+  .status {
+    position:fixed; left:12px; right:12px; z-index:1000;
+    bottom:calc(12px + env(safe-area-inset-bottom));
+    background:rgba(20,25,33,0.94); border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px; padding:14px 16px; color:#e8eaed;
+  }
+  .status .name { font-size:15px; font-weight:700; margin-bottom:4px; }
+  .status .meta { font-size:12.5px; color:#9aa2ad; line-height:1.5; }
+  .live { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent);
+          margin-right:6px; animation:pulse 1.6s infinite; vertical-align:1px; }
+  .live.off { background:#9aa2ad; animation:none; }
+  @keyframes pulse { 0%{opacity:1} 50%{opacity:0.3} 100%{opacity:1} }
+  .center-overlay {
+    position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; background:var(--bg); color:#e8eaed; text-align:center; padding:24px;
+  }
+  .center-overlay h2 { font-size:18px; }
+  .center-overlay p { font-size:14px; color:#9aa2ad; max-width:320px; line-height:1.6; }
+  .spinner { width:34px; height:34px; border-radius:50%; border:3px solid rgba(255,255,255,0.15);
+             border-top-color:var(--accent); animation:spin 0.9s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg) } }
+  .hidden { display:none !important; }
+  .marker-pin { position:relative; }
+  .marker-pin .dot {
+    width:22px; height:22px; border-radius:50%; background:var(--accent);
+    border:3px solid #fff; box-shadow:0 0 18px rgba(25,200,168,0.8);
+  }
+  .marker-pin .ring {
+    position:absolute; top:50%; left:50%; width:22px; height:22px; border-radius:50%;
+    border:2px solid var(--accent); transform:translate(-50%,-50%); animation:ring 1.8s infinite;
+  }
+  @keyframes ring { 0%{width:22px;height:22px;opacity:0.9} 100%{width:64px;height:64px;opacity:0} }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="topbar">
+  <button class="btn" onclick="history.length > 1 ? history.back() : window.close()">‹ Retour</button>
+  <div class="brand">EKENGE <span>PLUS</span></div>
+  <button class="btn quit" onclick="quit()">Quitter</button>
+</div>
+
+<div class="status hidden" id="status">
+  <div class="name" id="stName">—</div>
+  <div class="meta" id="stMeta">—</div>
+</div>
+
+<div class="center-overlay" id="loading">
+  <div class="spinner"></div>
+  <h2>EKENGE <span style="color:var(--accent)">PLUS</span></h2>
+  <p>Connexion au suivi en temps réel…</p>
+</div>
+
+<div class="center-overlay hidden" id="notfound">
+  <h2>Suivi introuvable</h2>
+  <p id="nfMsg">Ce lien de suivi n'est plus actif ou la personne a arrêté le partage de sa localisation.</p>
+  <button class="btn" onclick="location.reload()">Réessayer</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyA0uXpLyjJ3sCScJwn0fVQ4-nu32ZzoIAc',
+  appId: '1:677245357032:web:96eeba9fddacdc6670f25d',
+  messagingSenderId: '677245357032',
+  projectId: 'ekenge-plus',
+  authDomain: 'ekenge-plus.firebaseapp.com',
+  storageBucket: 'ekenge-plus.firebasestorage.app',
+});
+const db = getFirestore(app);
+
+// Identifiant : /suivi/<id> ou /suivi/?id=<id>
+// <id> = numero de telephone (+243...) OU jeton de session invite.
+const parts = location.pathname.split('/').filter(Boolean);
+let id = decodeURIComponent(parts[parts.length - 1] || '');
+if (id === 'suivi' || id === 'index.html') id = new URLSearchParams(location.search).get('id') || '';
+
+const $ = s => document.getElementById(s);
+window.quit = () => {
+  try { window.close(); } catch(e) {}
+  setTimeout(() => location.href = 'about:blank', 150);
+};
+
+let map, marker, trailLine;
+const trail = [];
+
+function initMap(lat, lng) {
+  map = L.map('map', { zoomControl: false }).setView([lat, lng], 16);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap',
+  }).addTo(map);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  const icon = L.divIcon({
+    className: 'marker-pin',
+    html: '<div class="ring"></div><div class="dot"></div>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+  marker = L.marker([lat, lng], { icon }).addTo(map);
+  trailLine = L.polyline([], { color: '#19c8a8', weight: 3, opacity: 0.9 }).addTo(map);
+}
+
+function update(lat, lng, name, at, live) {
+  if (!map) initMap(lat, lng);
+  marker.setLatLng([lat, lng]);
+  trail.push([lat, lng]);
+  if (trail.length > 300) trail.shift();
+  trailLine.setLatLngs(trail);
+  map.panTo([lat, lng], { animate: true });
+
+  $('loading').classList.add('hidden');
+  $('notfound').classList.add('hidden');
+  $('status').classList.remove('hidden');
+  $('stName').textContent = name;
+  const when = at ? new Date(at).toLocaleTimeString('fr-FR') : '—';
+  $('stMeta').innerHTML =
+    `<span class="live ${live ? '' : 'off'}"></span>` +
+    (live ? 'Suivi en temps réel actif' : 'Partage arrêté — dernière position connue') +
+    ` · Mise à jour : ${when}` +
+    `<br>${lat.toFixed(5)}, ${lng.toFixed(5)} · ` +
+    `<a style="color:#19c8a8" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank">Ouvrir dans Google Maps</a>`;
+}
+
+function notFound(msg) {
+  $('loading').classList.add('hidden');
+  if (msg) $('nfMsg').textContent = msg;
+  $('notfound').classList.remove('hidden');
+}
+
+if (!id) {
+  notFound('Lien invalide : aucun identifiant de suivi fourni.');
+} else if (id.startsWith('+') || /^\d{10,15}$/.test(id)) {
+  // Suivi d'un utilisateur EKENGE : collection positions/<phone>
+  const phone = id.startsWith('+') ? id : '+' + id;
+  let gotUser = false;
+  onSnapshot(doc(db, 'positions', phone), snap => {
+    if (!snap.exists()) { if (!gotUser) notFound(); return; }
+    const d = snap.data();
+    update(d.lat, d.lng, userName || 'Utilisateur EKENGE', d.at, true);
+  }, () => notFound('Erreur de connexion au serveur.'));
+  // Nom de l'utilisateur
+  let userName = '';
+  onSnapshot(doc(db, 'users', phone), snap => {
+    if (snap.exists()) {
+      const d = snap.data();
+      userName = [d.first_name, d.last_name].filter(Boolean).join(' ') || phone;
+      gotUser = true;
+      const el = $('stName');
+      if (!el.closest('.hidden')) el.textContent = userName;
+    }
+  });
+} else {
+  // Suivi invite : collection guest_sessions/<token>
+  onSnapshot(doc(db, 'guest_sessions', id), snap => {
+    if (!snap.exists()) { notFound(); return; }
+    const d = snap.data();
+    if (d.last_lat == null) { notFound('La personne n\'a pas encore partagé sa position.'); return; }
+    update(d.last_lat, d.last_lng, d.guest_name || 'Suivi invité', d.last_at, d.sharing !== false);
+  }, () => notFound('Erreur de connexion au serveur.'));
+}
+</script>
+</body>
+</html>

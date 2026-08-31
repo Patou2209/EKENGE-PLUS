@@ -76,7 +76,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   final List<GeoPoint> _trail = [];
   DateTime? _startedAt;
 
-  String get _trackingLink => 'https://ekengeplus.app/suivi/$_trackingToken';
+  String get _trackingLink => 'https://ekenge-plus.web.app/suivi/$_trackingToken';
 
   @override
   void initState() {

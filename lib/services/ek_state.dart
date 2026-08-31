@@ -562,7 +562,7 @@ class EkState extends ChangeNotifier {
           Channel.whatsapp,
           'Bonjour ${c.name}, ${user!.fullName} vous invite a rejoindre EKENGE PLUS, '
               'application de securite et de partage de localisation en temps reel. '
-              'Telechargez l\'application : https://ekengeplus.app/telecharger',
+              'Telechargez l\'application : https://ekenge-plus.web.app',
           'invitation',
         );
         _log(
@@ -622,7 +622,7 @@ class EkState extends ChangeNotifier {
       c,
       Channel.whatsapp,
       'Rappel : ${user!.fullName} vous invite a rejoindre EKENGE PLUS. '
-          'Telechargez l\'application : https://ekengeplus.app/telecharger',
+          'Telechargez l\'application : https://ekenge-plus.web.app',
       'invitation',
     );
     _log(EkEventType.invitationSent, 'Invitation relancee', c.name);
@@ -763,7 +763,7 @@ class EkState extends ChangeNotifier {
         '$msg\n'
         'Heure du declenchement : ${_hhmm(now)}\n'
         'Position : ${LocationService.formatCoords(position!)}\n'
-        'Suivi en temps reel : https://ekengeplus.app/suivi/${user!.phone}';
+        'Suivi en temps reel : https://ekenge-plus.web.app/suivi/${user!.phone}';
 
     // Notification Push a tous les membres de la liste Urgence.
     for (final c in urgenceList) {
@@ -883,7 +883,7 @@ class EkState extends ChangeNotifier {
         '$msg\n'
         'Heure : ${_hhmm(level1At!)}\n'
         'Derniere position : ${LocationService.formatCoords(activeAlert!.position)}\n'
-        'Suivi en temps reel : https://ekengeplus.app/suivi/${user!.phone}';
+        'Suivi en temps reel : https://ekenge-plus.web.app/suivi/${user!.phone}';
 
     // Notification Push et message WhatsApp aux membres de la liste Tracking.
     for (final c in trackingList) {
@@ -924,7 +924,7 @@ class EkState extends ChangeNotifier {
         '$msg\n'
         'Heure : ${_hhmm(now)}\n'
         'Geolocalisation temps reel : ${LocationService.formatCoords(activeAlert!.position)}\n'
-        'Suivi : https://ekengeplus.app/suivi/${user!.phone}';
+        'Suivi : https://ekenge-plus.web.app/suivi/${user!.phone}';
 
     for (final c in urgenceList) {
       await _send(c, Channel.push, msg, 'safe_level2');

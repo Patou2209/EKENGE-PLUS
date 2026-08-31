@@ -288,12 +288,12 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
                       text:
                           'Le numero de telephone constitue l\'identifiant '
                           'unique de votre compte. Un code de verification vous '
-                          'sera envoye par SMS.',
+                          'sera envoye par WhatsApp.',
                     ),
                     const SizedBox(height: 28),
                     EkButton(
-                      label: 'Recevoir le code SMS',
-                      icon: Icons.sms_outlined,
+                      label: 'Recevoir le code WhatsApp',
+                      icon: Icons.chat_outlined,
                       loading: _busy,
                       onPressed: _next,
                     ),
@@ -435,8 +435,8 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
             EkHeader(
               title: 'Verification du numero',
               subtitle: widget.resetMode
-                  ? 'Code envoye par SMS'
-                  : 'Etape 2 sur 4 · Code SMS',
+                  ? 'Code envoye par WhatsApp'
+                  : 'Etape 2 sur 4 · Code WhatsApp',
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -485,7 +485,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    // Vrai SMS via Firebase Auth : confirmation d'envoi.
+                    // Envoi reel via l'API WhatsApp Cloud : confirmation.
                     EkCard(
                       color: Ek.safe.withValues(alpha: 0.06),
                       border: Ek.safe.withValues(alpha: 0.28),
@@ -493,7 +493,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                       child: Row(
                         children: [
                           const Icon(
-                            Icons.sms_outlined,
+                            Icons.chat_outlined,
                             size: 17,
                             color: Ek.safe,
                           ),
@@ -503,13 +503,13 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'SMS ENVOYE',
+                                  'WHATSAPP ENVOYE',
                                   style: Ek.over(size: 9, color: Ek.safe),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   'Un code de verification a ete envoye '
-                                  'par SMS a ${widget.phone}. La reception '
+                                  'par WhatsApp a ${widget.phone}. La reception '
                                   'peut prendre jusqu\'a 2 minutes.',
                                   style: Ek.body(
                                     size: 13,
@@ -977,7 +977,7 @@ class _Steps extends StatelessWidget {
   const _Steps({required this.current});
 
   // Libelles courts : ils doivent tenir sur une seule ligne sous la puce.
-  static const _labels = ['Identite', 'Code SMS', 'Securite', 'Reseaux'];
+  static const _labels = ['Identite', 'WhatsApp', 'Securite', 'Reseaux'];
 
   @override
   Widget build(BuildContext context) {

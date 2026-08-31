@@ -204,7 +204,7 @@ class _AlertBanner extends StatelessWidget {
   }
 
   Future<void> _shareTrackingLink(BuildContext context, EkState st) async {
-    final link = 'https://ekengeplus.app/suivi/${st.user!.phone}';
+    final link = 'https://ekenge-plus.web.app/suivi/${st.user!.phone}';
     final text = Uri.encodeComponent(
       'ALERTE : ${st.user!.fullName} se sent en danger. '
       'Suivez sa position en temps reel (aucun compte requis) : $link',
