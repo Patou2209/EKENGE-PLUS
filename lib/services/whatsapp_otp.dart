@@ -190,14 +190,26 @@ class WhatsAppOtp {
         },
       ];
     } else {
-      // Mode test : modele UTILITY 3 parametres transportant le code.
+      // Modele UTILITY 3 parametres transportant le code.
+      // Les textes des parametres sont configurables a distance via
+      // Firestore (champ otp_params, liste de 3 chaines ; « {code} » est
+      // remplace par le code genere) : la formulation peut donc etre
+      // amelioree sans reinstaller l'application.
+      final defaults = [
+        'cher utilisateur',
+        'Verification du compte — $code est votre code de verification '
+            'de votre compte EKENGE PLUS. Ne le communiquez a personne',
+        '10 minutes',
+      ];
+      final raw = (cfg['otp_params'] as List?)?.cast<String>();
+      final params = (raw != null && raw.length == 3)
+          ? raw.map((s) => s.replaceAll('{code}', code)).toList()
+          : defaults;
       components = [
         {
           'type': 'body',
           'parameters': [
-            {'type': 'text', 'text': 'EKENGE PLUS'},
-            {'type': 'text', 'text': 'votre code de verification : $code'},
-            {'type': 'text', 'text': 'valable 10 minutes'},
+            for (final p in params) {'type': 'text', 'text': p},
           ],
         },
       ];
@@ -219,8 +231,9 @@ class WhatsAppOtp {
       'to': to,
       'type': 'text',
       'text': {
-        'body': 'EKENGE PLUS\n\nVotre code de verification : $code\n\n'
-            'Ce code expire dans 10 minutes. Ne le partagez avec personne.',
+        'body': 'Verification du compte\n\n$code est votre code de '
+            'verification de votre compte EKENGE PLUS.\n\nCe code est '
+            'valable 10 minutes. Ne le communiquez a personne.',
       },
     });
 
