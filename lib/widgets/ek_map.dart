@@ -168,15 +168,16 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
                       ),
                     ],
                   ),
-                // Marqueurs des utilisateurs.
+                // Marqueurs des utilisateurs — le point est centre EXACTEMENT
+                // sur la position GPS (pas d'etiquette, pas de decalage).
                 fm.MarkerLayer(
                   markers: widget.markers
                       .map(
                         (m) => fm.Marker(
                           point: ll.LatLng(m.point.lat, m.point.lng),
-                          width: 120,
-                          height: 86,
-                          alignment: Alignment.topCenter,
+                          width: 54,
+                          height: 54,
+                          alignment: Alignment.center,
                           child: _Marker(marker: m, pulse: _pulse),
                         ),
                       )
@@ -263,56 +264,34 @@ class _Marker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (marker.pulsing)
-          AnimatedBuilder(
-            animation: pulse,
-            builder: (_, __) {
-              final t = pulse.value;
-              return SizedBox(
-                width: 54,
-                height: 54,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 18 + 34 * t,
-                      height: 18 + 34 * t,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: marker.color.withValues(alpha: (1 - t) * 0.6),
-                          width: 1.4,
-                        ),
-                      ),
-                    ),
-                    _dot(),
-                  ],
+    // Uniquement le point de position (aucune etiquette sur la carte) :
+    // le centre du point correspond exactement a la position GPS.
+    if (marker.pulsing) {
+      return AnimatedBuilder(
+        animation: pulse,
+        builder: (_, __) {
+          final t = pulse.value;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 18 + 34 * t,
+                height: 18 + 34 * t,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: marker.color.withValues(alpha: (1 - t) * 0.6),
+                    width: 1.4,
+                  ),
                 ),
-              );
-            },
-          )
-        else
-          SizedBox(width: 54, height: 54, child: Center(child: _dot())),
-        const SizedBox(height: 2),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Ek.bgElevated.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: marker.color.withValues(alpha: 0.35)),
-          ),
-          child: Text(
-            marker.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Ek.over(size: 8.5, color: Ek.textPrimary),
-          ),
-        ),
-      ],
-    );
+              ),
+              _dot(),
+            ],
+          );
+        },
+      );
+    }
+    return Center(child: _dot());
   }
 
   Widget _dot() {
