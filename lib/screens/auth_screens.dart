@@ -22,38 +22,24 @@ class WelcomeScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const Spacer(flex: 4),
-              const EkMark(size: 74),
-              const SizedBox(height: 26),
-              const EkWordmark(size: 22),
-              const SizedBox(height: 14),
+              const Spacer(flex: 3),
+              Text('Bienvenue', style: Ek.title(size: 28)),
+              const SizedBox(height: 8),
               Text(
-                'Securite et partage de localisation\nen temps reel',
+                'Votre securite personnelle,\nen temps reel.',
                 textAlign: TextAlign.center,
                 style: Ek.body(size: 14, color: Ek.textSecondary),
               ),
-              const Spacer(flex: 3),
-              _Feature(
-                icon: Icons.share_location_outlined,
-                title: 'Tracking',
-                text: 'Partage volontaire de votre localisation.',
-              ),
-              const SizedBox(height: 12),
-              _Feature(
-                icon: Icons.crisis_alert_outlined,
-                title: 'Danger',
-                text: 'Signalement manuel d\'une situation critique.',
-              ),
-              const SizedBox(height: 12),
-              _Feature(
-                icon: Icons.verified_user_outlined,
-                title: 'Safe',
-                text: 'Verification periodique de votre securite.',
+              const Spacer(flex: 2),
+              Image.asset(
+                'assets/brand/logo.png',
+                width: 230,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const EkMark(size: 120),
               ),
               const Spacer(flex: 3),
               EkButton(
                 label: 'Creer un compte',
-                icon: Icons.person_add_alt,
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PhoneStepScreen()),
                 ),
@@ -62,30 +48,29 @@ class WelcomeScreen extends StatelessWidget {
               EkButton(
                 label: 'J\'ai deja un compte',
                 outlined: true,
-                color: Ek.textSecondary,
+                color: Ek.textPrimary,
                 onPressed: () => Navigator.of(
                   context,
                 ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               // §11 : fonction Tracking sans creation de compte (visiteur).
-              TextButton.icon(
+              TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const GuestTrackingScreen(),
                   ),
                 ),
-                icon: const Icon(
-                  Icons.share_location_outlined,
-                  size: 17,
-                  color: Ek.accent,
-                ),
-                label: Text(
+                child: Text(
                   'Partager ma localisation sans compte',
-                  style: Ek.body(size: 13, color: Ek.accent),
+                  style: Ek.body(
+                    size: 13,
+                    color: Ek.accent,
+                    weight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -94,44 +79,6 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-class _Feature extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String text;
-  const _Feature({required this.icon, required this.title, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Ek.surface,
-            border: Border.all(color: Ek.hairline),
-          ),
-          child: Icon(icon, size: 19, color: Ek.accent),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.toUpperCase(),
-                style: Ek.over(size: 10, color: Ek.textSecondary),
-              ),
-              const SizedBox(height: 3),
-              Text(text, style: Ek.body(size: 12.5)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // =========================================================================
 // §3 Etape 1 — saisie du numero de telephone
@@ -1066,7 +1013,7 @@ class _Steps extends StatelessWidget {
                         style: Ek.over(
                           size: 9.5,
                           color: active
-                              ? const Color(0xFF04120F)
+                              ? Colors.white
                               : Ek.textTertiary,
                         ),
                       ),

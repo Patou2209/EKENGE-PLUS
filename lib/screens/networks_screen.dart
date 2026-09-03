@@ -162,7 +162,7 @@ class _ListView extends StatelessWidget {
           icon: Icons.contacts_outlined,
           color: accent,
           textColor: list == SafetyList.tracking
-              ? const Color(0xFF04120F)
+              ? Colors.white
               : Colors.white,
           onPressed: () => _NetworksScreenState._add(context, list),
         ),

@@ -46,7 +46,7 @@ class EkWordmark extends StatelessWidget {
   }
 }
 
-/// Marque circulaire (icone d'application interne, splash, en-tetes).
+/// Marque officielle : bouclier du logo EKENGE PLUS (splash, en-tetes).
 class EkMark extends StatelessWidget {
   final double size;
   final Color color;
@@ -54,17 +54,15 @@ class EkMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Ek.surfaceHigh,
-        border: Border.all(color: color.withValues(alpha: 0.55), width: 1.2),
-        boxShadow: Ek.glow(color, o: 0.18, b: 26),
-      ),
-      child: Center(
-        child: Icon(Icons.shield_outlined, size: size * 0.46, color: color),
+      child: Image.asset(
+        'assets/brand/shield.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) =>
+            Icon(Icons.shield_outlined, size: size * 0.7, color: color),
       ),
     );
   }
@@ -154,8 +152,8 @@ class EkButton extends StatelessWidget {
     required this.label,
     this.icon,
     this.onPressed,
-    this.color = Ek.accent,
-    this.textColor = const Color(0xFF04120F),
+    this.color = Ek.ink,
+    this.textColor = Colors.white,
     this.loading = false,
     this.outlined = false,
     this.height = 54,
@@ -167,6 +165,8 @@ class EkButton extends StatelessWidget {
     final bg = outlined ? Colors.transparent : color;
     final fg = outlined ? color : textColor;
 
+    // Bouton en pilule (rayon = hauteur / 2), style professionnel.
+    final radius = BorderRadius.circular(height / 2);
     return Opacity(
       opacity: enabled ? 1 : 0.42,
       child: SizedBox(
@@ -174,13 +174,13 @@ class EkButton extends StatelessWidget {
         width: double.infinity,
         child: Material(
           color: bg,
-          borderRadius: BorderRadius.circular(Ek.r16),
+          borderRadius: radius,
           child: InkWell(
             onTap: enabled ? onPressed : null,
-            borderRadius: BorderRadius.circular(Ek.r16),
+            borderRadius: radius,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(Ek.r16),
+                borderRadius: radius,
                 border: outlined
                     ? Border.all(
                         color: color.withValues(alpha: 0.6),

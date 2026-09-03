@@ -363,7 +363,7 @@ class _ContactPickerScreenState extends State<ContactPickerScreen> {
                       icon: Icons.playlist_add_check,
                       color: accent,
                       textColor: widget.target == SafetyList.tracking
-                          ? const Color(0xFF04120F)
+                          ? Colors.white
                           : Colors.white,
                       loading: _saving,
                       onPressed: _selected.isEmpty ? null : _save,

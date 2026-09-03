@@ -2,31 +2,36 @@ import 'package:flutter/material.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 
-/// EKENGE PLUS — Design System « Obsidian Premium »
+/// EKENGE PLUS — Design System « Clarity » (theme clair professionnel).
 /// Aucun emoji. Icones vectorielles natives (Material) uniquement.
+/// Fond creme, cartes blanches, boutons sombres en pilule, accent teal
+/// repris du logo officiel.
 class Ek {
   Ek._();
 
-  // ---- Palette Obsidian -------------------------------------------------
-  static const Color bg = Color(0xFF0A0B0E);
-  static const Color bgElevated = Color(0xFF11131A);
-  static const Color surface = Color(0xFF15181F);
-  static const Color surfaceHigh = Color(0xFF1C2028);
-  static const Color hairline = Color(0xFF262B35);
-  static const Color hairlineSoft = Color(0xFF1E222B);
+  // ---- Palette Clarity ----------------------------------------------------
+  static const Color bg = Color(0xFFF4F4F2); // fond creme clair
+  static const Color bgElevated = Color(0xFFFFFFFF);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceHigh = Color(0xFFF0F1F3);
+  static const Color hairline = Color(0xFFE5E7EB);
+  static const Color hairlineSoft = Color(0xFFEEF0F2);
 
-  static const Color textPrimary = Color(0xFFF2F4F8);
-  static const Color textSecondary = Color(0xFF9BA3B4);
-  static const Color textTertiary = Color(0xFF636B7C);
+  static const Color textPrimary = Color(0xFF15181D); // quasi noir
+  static const Color textSecondary = Color(0xFF5A6270);
+  static const Color textTertiary = Color(0xFF9AA1AD);
 
-  static const Color accent = Color(0xFF17C8B4); // teal signature
-  static const Color accentDim = Color(0xFF0E6F65);
-  static const Color danger = Color(0xFFC8102E); // crimson mat
+  /// Encre : couleur des boutons principaux (pilule sombre, cf. references).
+  static const Color ink = Color(0xFF16181D);
+
+  static const Color accent = Color(0xFF0F8478); // teal du logo
+  static const Color accentDim = Color(0xFF0B655C);
+  static const Color danger = Color(0xFFC8102E);
   static const Color dangerBright = Color(0xFFE8213C);
-  static const Color safe = Color(0xFF1FB877);
-  static const Color warn = Color(0xFFE0A526);
+  static const Color safe = Color(0xFF13915F);
+  static const Color warn = Color(0xFFB07C13);
 
-  // ---- Rythme -----------------------------------------------------------
+  // ---- Rythme -------------------------------------------------------------
   static const double r12 = 12;
   static const double r16 = 16;
   static const double r20 = 20;
@@ -35,13 +40,13 @@ class Ek {
   static const Duration fast = Duration(milliseconds: 180);
   static const Duration med = Duration(milliseconds: 320);
 
-  // ---- Typographie ------------------------------------------------------
+  // ---- Typographie --------------------------------------------------------
   static TextStyle wordmark({double size = 15, Color color = textPrimary}) =>
       GoogleFonts.inter(
         fontSize: size,
         color: color,
-        fontWeight: FontWeight.w600,
-        letterSpacing: size * 0.22,
+        fontWeight: FontWeight.w700,
+        letterSpacing: size * 0.18,
         height: 1.1,
       );
 
@@ -50,14 +55,14 @@ class Ek {
         fontSize: size,
         color: color,
         fontWeight: FontWeight.w600,
-        letterSpacing: size * 0.16,
+        letterSpacing: size * 0.14,
       );
 
   static TextStyle title({double size = 22, Color color = textPrimary}) =>
       GoogleFonts.inter(
         fontSize: size,
         color: color,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         letterSpacing: -0.4,
         height: 1.2,
       );
@@ -78,17 +83,17 @@ class Ek {
       GoogleFonts.inter(
         fontSize: size,
         color: color,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         letterSpacing: -0.8,
         fontFeatures: const [FontFeature.tabularFigures()],
       );
 
-  // ---- Ombres -----------------------------------------------------------
+  // ---- Ombres -------------------------------------------------------------
   static List<BoxShadow> get lift => const [
-    BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 10)),
+    BoxShadow(color: Color(0x14101828), blurRadius: 18, offset: Offset(0, 6)),
   ];
 
-  static List<BoxShadow> glow(Color c, {double o = 0.34, double b = 34}) => [
+  static List<BoxShadow> glow(Color c, {double o = 0.22, double b = 26}) => [
     BoxShadow(
       color: c.withValues(alpha: o),
       blurRadius: b,
@@ -96,17 +101,17 @@ class Ek {
     ),
   ];
 
-  // ---- Theme ------------------------------------------------------------
+  // ---- Theme --------------------------------------------------------------
   static ThemeData theme() {
-    final base = ThemeData.dark(useMaterial3: true);
+    final base = ThemeData.light(useMaterial3: true);
     return base.copyWith(
       scaffoldBackgroundColor: bg,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         surface: bg,
         primary: accent,
         secondary: accent,
         error: danger,
-        onPrimary: Color(0xFF04120F),
+        onPrimary: Colors.white,
         onSurface: textPrimary,
       ),
       textTheme: GoogleFonts.interTextTheme(
@@ -143,17 +148,17 @@ class Ek {
         thumbColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
               ? Colors.white
-              : const Color(0xFF6C7486),
+              : const Color(0xFFB4BAC4),
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (s) =>
-              s.contains(WidgetState.selected) ? safe : const Color(0x4423283A),
+              s.contains(WidgetState.selected) ? safe : const Color(0xFFE8EAEE),
         ),
         trackOutlineColor: WidgetStateProperty.all(hairline),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: surfaceHigh,
-        contentTextStyle: body(color: textPrimary),
+        backgroundColor: ink,
+        contentTextStyle: body(color: Colors.white),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r12)),
       ),

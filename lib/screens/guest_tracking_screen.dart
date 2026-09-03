@@ -1171,7 +1171,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                     ? Icons.pause_circle_outline
                     : Icons.play_circle_outline,
                 color: _sharing ? Ek.danger : Ek.accent,
-                textColor: _sharing ? Colors.white : const Color(0xFF04120F),
+                textColor: Colors.white,
                 onPressed: _sharing ? _pauseSharing : _resumeSharing,
               ),
               const SizedBox(height: 10),
@@ -1220,11 +1220,11 @@ class _SendChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.send, size: 14, color: Color(0xFF04120F)),
+              const Icon(Icons.send, size: 14, color: Colors.white),
               const SizedBox(width: 6),
               Text(
                 'WHATSAPP',
-                style: Ek.over(size: 10.5, color: const Color(0xFF04120F)),
+                style: Ek.over(size: 10.5, color: Colors.white),
               ),
             ],
           ),

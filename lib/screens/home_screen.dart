@@ -565,7 +565,7 @@ class _DangerButtonState extends State<_DangerButton>
           content: Text(
             'Aucun contact dans la liste Urgence. Ajoutez vos proches '
             'dans l\'onglet Reseaux.',
-            style: Ek.body(size: 13, color: const Color(0xFF1A1305)),
+            style: Ek.body(size: 13, color: Colors.white),
           ),
         ),
       );
