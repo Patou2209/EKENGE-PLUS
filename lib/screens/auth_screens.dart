@@ -339,6 +339,9 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
   String? _resendErr;
   int _resend = 45;
 
+  /// Canal de secours : le code a ete (re)envoye par SMS Firebase.
+  bool _viaSms = false;
+
   @override
   void initState() {
     super.initState();
@@ -352,38 +355,66 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
     }
   }
 
-  /// Renvoi du SMS — flux ImmoZone : reutilise le jeton de renvoi
-  /// (forceResendingToken) pour eviter une nouvelle attestation complete.
+  /// Renvoi du code sur le canal actif (WhatsApp par defaut, SMS si le
+  /// canal de secours a ete choisi).
   Future<void> _resendCode() async {
     setState(() {
       _resendErr = null;
       _resend = 45;
     });
     _countdown();
-    await context.read<EkState>().startOtp(
+    final st = context.read<EkState>();
+    final send = _viaSms ? st.startOtpSms : st.startOtp;
+    await send(
       phone: widget.phone,
       isResend: true,
       onCodeSent: () {
         if (!mounted) return;
         setState(() => _resendErr = null);
       },
-      onAutoVerified: () {
-        if (!mounted) return;
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => PasswordStepScreen(
-              phone: widget.phone,
-              firstName: widget.firstName,
-              lastName: widget.lastName,
-              resetMode: widget.resetMode,
-            ),
-          ),
-        );
-      },
+      onAutoVerified: _goNext,
       onFailed: (message) {
         if (!mounted) return;
         setState(() => _resendErr = message);
       },
+    );
+  }
+
+  /// CANAL DE SECOURS : l'utilisateur n'a pas WhatsApp — envoi par SMS
+  /// via Firebase Phone Auth.
+  Future<void> _switchToSms() async {
+    setState(() {
+      _viaSms = true;
+      _err = null;
+      _resendErr = null;
+      _resend = 45;
+    });
+    _countdown();
+    await context.read<EkState>().startOtpSms(
+      phone: widget.phone,
+      onCodeSent: () {
+        if (!mounted) return;
+        setState(() => _resendErr = null);
+      },
+      onAutoVerified: _goNext,
+      onFailed: (message) {
+        if (!mounted) return;
+        setState(() => _resendErr = message);
+      },
+    );
+  }
+
+  void _goNext() {
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PasswordStepScreen(
+          phone: widget.phone,
+          firstName: widget.firstName,
+          lastName: widget.lastName,
+          resetMode: widget.resetMode,
+        ),
+      ),
     );
   }
 
@@ -414,16 +445,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
       setState(() => _err = 'Code incorrect ou expire');
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PasswordStepScreen(
-          phone: widget.phone,
-          firstName: widget.firstName,
-          lastName: widget.lastName,
-          resetMode: widget.resetMode,
-        ),
-      ),
-    );
+    _goNext();
   }
 
   @override
@@ -435,8 +457,10 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
             EkHeader(
               title: 'Verification du numero',
               subtitle: widget.resetMode
-                  ? 'Code envoye par WhatsApp'
-                  : 'Etape 2 sur 4 · Code WhatsApp',
+                  ? (_viaSms ? 'Code envoye par SMS' : 'Code envoye par WhatsApp')
+                  : (_viaSms
+                        ? 'Etape 2 sur 4 · Code SMS'
+                        : 'Etape 2 sur 4 · Code WhatsApp'),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -485,15 +509,15 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    // Envoi reel via l'API WhatsApp Cloud : confirmation.
+                    // Confirmation d'envoi (WhatsApp Cloud API ou SMS Firebase).
                     EkCard(
                       color: Ek.safe.withValues(alpha: 0.06),
                       border: Ek.safe.withValues(alpha: 0.28),
                       padding: const EdgeInsets.all(14),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.chat_outlined,
+                          Icon(
+                            _viaSms ? Icons.sms_outlined : Icons.chat_outlined,
                             size: 17,
                             color: Ek.safe,
                           ),
@@ -503,14 +527,20 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'WHATSAPP ENVOYE',
+                                  _viaSms ? 'SMS ENVOYE' : 'WHATSAPP ENVOYE',
                                   style: Ek.over(size: 9, color: Ek.safe),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Un code de verification a ete envoye '
-                                  'par WhatsApp a ${widget.phone}. La reception '
-                                  'peut prendre jusqu\'a 2 minutes.',
+                                  _viaSms
+                                      ? 'Un code de verification a ete envoye '
+                                            'par SMS a ${widget.phone}. La '
+                                            'reception peut prendre jusqu\'a '
+                                            '2 minutes.'
+                                      : 'Un code de verification a ete envoye '
+                                            'par WhatsApp a ${widget.phone}. La '
+                                            'reception peut prendre jusqu\'a '
+                                            '2 minutes.',
                                   style: Ek.body(
                                     size: 13,
                                     color: Ek.textPrimary,
@@ -572,6 +602,25 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                         ),
                       ),
                     ),
+                    if (!_viaSms)
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _switchToSms,
+                          icon: const Icon(
+                            Icons.sms_outlined,
+                            size: 15,
+                            color: Ek.textSecondary,
+                          ),
+                          label: Text(
+                            'Vous n\'avez pas WhatsApp ? '
+                            'Recevoir le code par SMS',
+                            style: Ek.body(
+                              size: 12.5,
+                              color: Ek.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 20),
                   ],
                 ),

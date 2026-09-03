@@ -292,6 +292,11 @@ class EkState extends ChangeNotifier {
   /// la saisie du code DANS [onCodeSent]. [onAutoVerified] n'est jamais
   /// appele (pas d'auto-validation avec WhatsApp) mais est conserve pour
   /// ne pas modifier les ecrans.
+  /// Indique si le dernier code OTP a ete envoye par SMS (canal de secours
+  /// Firebase Phone Auth) plutot que par WhatsApp. Determine le mode de
+  /// verification dans [verifyOtp].
+  bool _otpViaSms = false;
+
   Future<void> startOtp({
     required String phone,
     required void Function() onCodeSent,
@@ -299,6 +304,7 @@ class EkState extends ChangeNotifier {
     required void Function(String message) onFailed,
     bool isResend = false,
   }) {
+    _otpViaSms = false;
     _log(
       EkEventType.otpSent,
       'Envoi du code WhatsApp',
@@ -317,31 +323,56 @@ class EkState extends ChangeNotifier {
       onFailed: onFailed,
     );
 
-    // -----------------------------------------------------------------------
-    // ANCIEN SYSTEME OTP — Firebase Phone Auth (SMS) — CONSERVE POUR PLUS TARD
-    // Fonctionnel (App Check debug token + Enforcement), desactive au profit
-    // de WhatsApp. Pour le reactiver : decommenter ci-dessous et supprimer
-    // l'appel WhatsAppOtp ci-dessus.
-    // -----------------------------------------------------------------------
-    // return _fb.startPhoneVerification(
-    //   phone: phone,
-    //   isResend: isResend,
-    //   onCodeSent: () {
-    //     _log(
-    //       EkEventType.otpSent,
-    //       'SMS envoye',
-    //       'Code OTP envoye par SMS a $phone (Firebase Auth)',
-    //     );
-    //     onCodeSent();
-    //   },
-    //   onAutoVerified: onAutoVerified,
-    //   onFailed: onFailed,
-    // );
   }
 
-  /// Verifie le code OTP saisi — verification locale WhatsApp
-  /// (hash SHA-256 + expiration 10 minutes).
+  /// CANAL DE SECOURS : envoi du code OTP par SMS via Firebase Phone Auth.
+  /// Utilise quand l'utilisateur n'a pas WhatsApp ou que l'envoi WhatsApp
+  /// echoue. [onAutoVerified] peut etre appele sur Android si le SMS est
+  /// detecte automatiquement.
+  Future<void> startOtpSms({
+    required String phone,
+    required void Function() onCodeSent,
+    required void Function() onAutoVerified,
+    required void Function(String message) onFailed,
+    bool isResend = false,
+  }) {
+    _otpViaSms = true;
+    _log(
+      EkEventType.otpSent,
+      'Envoi du code SMS',
+      'Demande de code OTP par SMS pour $phone (canal de secours)',
+    );
+    return _fb.startPhoneVerification(
+      phone: phone,
+      isResend: isResend,
+      onCodeSent: () {
+        _log(
+          EkEventType.otpSent,
+          'SMS envoye',
+          'Code OTP envoye par SMS a $phone (Firebase Auth)',
+        );
+        onCodeSent();
+      },
+      onAutoVerified: onAutoVerified,
+      onFailed: onFailed,
+    );
+  }
+
+  /// Verifie le code OTP saisi. Selon le canal utilise pour l'envoi :
+  /// - WhatsApp : verification locale (hash SHA-256 + expiration 10 min) ;
+  /// - SMS (secours) : verification aupres de Firebase Phone Auth.
   Future<bool> verifyOtp(String phone, String code) async {
+    if (_otpViaSms) {
+      final ok = await _fb.verifyRealOtp(code);
+      if (ok) {
+        _log(
+          EkEventType.otpVerified,
+          'Numero verifie',
+          'Code OTP valide pour $phone (SMS Firebase)',
+        );
+      }
+      return ok;
+    }
     final ok = WhatsAppOtp.instance.verifyOtp(phone, code);
     if (ok) {
       _log(
@@ -351,19 +382,6 @@ class EkState extends ChangeNotifier {
       );
     }
     return ok;
-
-    // -----------------------------------------------------------------------
-    // ANCIEN SYSTEME OTP — Firebase Phone Auth (SMS) — CONSERVE POUR PLUS TARD
-    // -----------------------------------------------------------------------
-    // final ok = await _fb.verifyRealOtp(code);
-    // if (ok) {
-    //   _log(
-    //     EkEventType.otpVerified,
-    //     'Numero verifie',
-    //     'Code OTP valide pour $phone (SMS Firebase)',
-    //   );
-    // }
-    // return ok;
   }
 
   Future<void> completeRegistration({
