@@ -439,14 +439,60 @@ class _MapSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        EkSectionLabel(
-          'Carte interactive',
-          trailing: st.trackingActive
-              ? Text(
-                  'MISE A JOUR TEMPS REEL',
-                  style: Ek.over(size: 8.5, color: Ek.accent),
-                )
-              : Text('POSITION LOCALE', style: Ek.over(size: 8.5)),
+        // En-tete de la carte (cf. maquette) : icone + double libelle.
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, left: 2, right: 2),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Ek.accentDim,
+                ),
+                child: const Icon(
+                  Icons.map_outlined,
+                  size: 17,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CARTE INTERACTIVE',
+                    style: Ek.over(size: 10, color: Ek.accentDim),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    st.trackingActive
+                        ? 'Vue en temps reel'
+                        : 'Vue de la position',
+                    style: Ek.body(size: 11, color: Ek.textSecondary),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    st.trackingActive ? 'TEMPS REEL' : 'POSITION LOCALE',
+                    style: Ek.over(size: 10, color: Ek.accentDim),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Precision elevee',
+                    style: Ek.body(size: 11, color: Ek.textSecondary),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.place_outlined, size: 18, color: Ek.accentDim),
+            ],
+          ),
         ),
         EkMap(
           markers: markers,
@@ -456,7 +502,11 @@ class _MapSection extends StatelessWidget {
           trailColor: selfColor,
         ),
         const SizedBox(height: 10),
-        EkMapReadout(point: me, live: st.trackingActive),
+        // Bandeau coordonnees dans une carte blanche (cf. maquette).
+        EkCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: EkMapReadout(point: me, live: st.trackingActive),
+        ),
       ],
     );
   }
@@ -806,6 +856,8 @@ class _TrackingCard extends StatelessWidget {
     final elapsed = st.trackingElapsed;
 
     return EkCard(
+      color: Ek.accent.withValues(alpha: 0.06),
+      border: Ek.accent.withValues(alpha: 0.22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -816,15 +868,19 @@ class _TrackingCard extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: on ? Ek.safe.withValues(alpha: 0.12) : Ek.surfaceHigh,
+                  color: on
+                      ? Ek.accentDim
+                      : Ek.accent.withValues(alpha: 0.12),
                   border: Border.all(
-                    color: on ? Ek.safe.withValues(alpha: 0.4) : Ek.hairline,
+                    color: on
+                        ? Ek.accentDim
+                        : Ek.accent.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Icon(
                   Icons.share_location_outlined,
                   size: 19,
-                  color: on ? Ek.safe : Ek.textSecondary,
+                  color: on ? Colors.white : Ek.accentDim,
                 ),
               ),
               const SizedBox(width: 14),
@@ -832,12 +888,15 @@ class _TrackingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('TRACKING', style: Ek.over(size: 10)),
+                    Text(
+                      'PARTAGE DE LOCALISATION',
+                      style: Ek.over(size: 10, color: Ek.accentDim),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       on
-                          ? 'Partage actif · ${st.trackingList.length} contact(s)'
-                          : 'Partage de localisation inactif',
+                          ? 'Actif · ${st.trackingList.length} contact(s)'
+                          : 'Inactif',
                       style: Ek.body(size: 13.5, color: Ek.textPrimary),
                     ),
                   ],
@@ -929,6 +988,8 @@ class _SafeCard extends StatelessWidget {
         : 1 - (cd.inSeconds / totalSec).clamp(0.0, 1.0);
 
     return EkCard(
+      color: Ek.accent.withValues(alpha: 0.06),
+      border: Ek.accent.withValues(alpha: 0.22),
       onTap: () => showModalBottomSheet(
         context: context,
         backgroundColor: Ek.bgElevated,
@@ -956,13 +1017,16 @@ class _SafeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('VERIFICATION SAFE', style: Ek.over(size: 10)),
+                Text(
+                  'VERIFICATION SAFE',
+                  style: Ek.over(size: 10, color: Ek.accentDim),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   !st.safeEnabled
                       ? 'Desactivee'
                       : !st.trackingActive
-                      ? 'Active des le demarrage du Tracking'
+                      ? 'Activee des le demarrage du Tracking'
                       : cd == null
                       ? 'En attente'
                       : 'Prochaine verification dans ${ekFormatDuration(cd)}',
@@ -970,13 +1034,13 @@ class _SafeCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Frequence · ${st.safeIntervalMinutes} minutes',
+                  'Frequence : ${st.safeIntervalMinutes} minutes',
                   style: Ek.body(size: 11.5),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.tune, size: 18, color: Ek.textTertiary),
+          const Icon(Icons.chevron_right, size: 20, color: Ek.accentDim),
         ],
       ),
     );
@@ -997,6 +1061,8 @@ class _NetworkSummary extends StatelessWidget {
         Expanded(
           child: EkCard(
             padding: const EdgeInsets.all(16),
+            color: Ek.accent.withValues(alpha: 0.05),
+            border: Ek.accent.withValues(alpha: 0.2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1005,10 +1071,13 @@ class _NetworkSummary extends StatelessWidget {
                     const Icon(
                       Icons.group_outlined,
                       size: 16,
-                      color: Ek.accent,
+                      color: Ek.accentDim,
                     ),
                     const SizedBox(width: 8),
-                    Text('TRACKING', style: Ek.over(size: 9)),
+                    Text(
+                      'TRACKING',
+                      style: Ek.over(size: 9, color: Ek.accentDim),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -1023,6 +1092,8 @@ class _NetworkSummary extends StatelessWidget {
         Expanded(
           child: EkCard(
             padding: const EdgeInsets.all(16),
+            color: Ek.danger.withValues(alpha: 0.04),
+            border: Ek.danger.withValues(alpha: 0.18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1034,7 +1105,10 @@ class _NetworkSummary extends StatelessWidget {
                       color: Ek.danger,
                     ),
                     const SizedBox(width: 8),
-                    Text('URGENCE', style: Ek.over(size: 9)),
+                    Text(
+                      'URGENCE',
+                      style: Ek.over(size: 9, color: Ek.danger),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),

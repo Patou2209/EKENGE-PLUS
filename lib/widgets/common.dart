@@ -505,6 +505,126 @@ class EkField extends StatelessWidget {
   }
 }
 
+/// Champ telephone avec drapeau RDC et indicatif +243 fixe (cf. maquette).
+class EkPhoneField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final String? error;
+  final String hint;
+
+  const EkPhoneField({
+    super.key,
+    required this.label,
+    required this.controller,
+    this.error,
+    this.hint = '81 234 56 78',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(label.toUpperCase(), style: Ek.over()),
+        ),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.phone,
+          style: Ek.body(size: 15.5, color: Ek.textPrimary),
+          cursorColor: Ek.accent,
+          decoration: InputDecoration(
+            hintText: hint,
+            errorText: error,
+            errorStyle: Ek.body(size: 11.5, color: Ek.dangerBright),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 14, right: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.phone_outlined,
+                    size: 17,
+                    color: Ek.textTertiary,
+                  ),
+                  const SizedBox(width: 8),
+                  const _DrcFlag(),
+                  const SizedBox(width: 6),
+                  Text(
+                    '+243',
+                    style: Ek.body(
+                      size: 14.5,
+                      color: Ek.textPrimary,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(width: 1, height: 22, color: Ek.hairline),
+                ],
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 0,
+              minHeight: 0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Drapeau de la RD Congo dessine en vectoriel (aucune image, aucun emoji).
+class _DrcFlag extends StatelessWidget {
+  const _DrcFlag();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2.5),
+      child: CustomPaint(size: const Size(20, 14), painter: _DrcFlagPainter()),
+    );
+  }
+}
+
+class _DrcFlagPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    // Fond bleu ciel
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF007FFF),
+    );
+    // Bande diagonale jaune (liseres) puis rouge
+    void diag(double inset, Color color) {
+      final p = Path()
+        ..moveTo(0, h - inset)
+        ..lineTo(w - inset, 0)
+        ..lineTo(w, inset)
+        ..lineTo(inset, h)
+        ..close();
+      canvas.drawPath(p, Paint()..color = color);
+    }
+
+    diag(-h * 0.16, const Color(0xFFF7D618));
+    diag(h * 0.18, const Color(0xFFCE1021));
+    // Etoile jaune (simplifiee en losange, taille reduite)
+    final star = Path()
+      ..moveTo(w * 0.16, h * 0.10)
+      ..lineTo(w * 0.22, h * 0.24)
+      ..lineTo(w * 0.16, h * 0.38)
+      ..lineTo(w * 0.10, h * 0.24)
+      ..close();
+    canvas.drawPath(star, Paint()..color = const Color(0xFFF7D618));
+  }
+
+  @override
+  bool shouldRepaint(_DrcFlagPainter oldDelegate) => false;
+}
+
 /// En-tete d'ecran secondaire.
 class EkHeader extends StatelessWidget {
   final String title;
@@ -522,31 +642,40 @@ class EkHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Titre CENTRE avec bouton retour a gauche (cf. maquette).
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 16, 10),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
       child: Row(
         children: [
           if (back)
             IconButton(
               onPressed: () => Navigator.of(context).maybePop(),
               icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              color: Ek.textSecondary,
+              color: Ek.textPrimary,
             )
           else
-            const SizedBox(width: 12),
+            const SizedBox(width: 48),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(title, style: Ek.title(size: 19)),
+                Text(
+                  title.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: Ek.title(size: 18),
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 3),
-                  Text(subtitle!, style: Ek.body(size: 12.5)),
+                  Text(
+                    subtitle!,
+                    textAlign: TextAlign.center,
+                    style: Ek.body(size: 12, color: Ek.accentDim),
+                  ),
                 ],
               ],
             ),
           ),
-          ...actions,
+          if (actions.isEmpty) const SizedBox(width: 48) else ...actions,
         ],
       ),
     );

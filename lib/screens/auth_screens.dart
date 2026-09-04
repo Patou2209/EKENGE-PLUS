@@ -292,7 +292,7 @@ class PhoneStepScreen extends StatefulWidget {
 class _PhoneStepScreenState extends State<PhoneStepScreen> {
   final _first = TextEditingController();
   final _last = TextEditingController();
-  final _phone = TextEditingController(text: '+243 ');
+  final _phone = TextEditingController();
   bool _busy = false;
   String? _err;
 
@@ -420,26 +420,42 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
                       caps: TextCapitalization.words,
                     ),
                     const SizedBox(height: 18),
-                    EkField(
+                    EkPhoneField(
                       label: 'Numero de telephone',
                       controller: _phone,
-                      hint: '+243 810 000 000',
-                      icon: Icons.phone_outlined,
-                      keyboard: TextInputType.phone,
                       error: _err,
                     ),
-                    const SizedBox(height: 14),
-                    _Note(
-                      icon: Icons.info_outline,
-                      text:
-                          'Le numero de telephone constitue l\'identifiant '
-                          'unique de votre compte. Un code de verification vous '
-                          'sera envoye par WhatsApp.',
+                    const SizedBox(height: 16),
+                    // Note d'information sur fond teal clair (cf. maquette).
+                    EkCard(
+                      color: Ek.accent.withValues(alpha: 0.07),
+                      border: Ek.accent.withValues(alpha: 0.18),
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Ek.accentDim,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Le numero de telephone constitue l\'identifiant '
+                              'unique de votre compte. Un code de verification '
+                              'vous sera envoye par WhatsApp.',
+                              style: Ek.body(size: 12, height: 1.5),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 28),
                     EkButton(
                       label: 'Recevoir le code WhatsApp',
                       icon: Icons.chat_outlined,
+                      color: Ek.accentDim,
                       loading: _busy,
                       onPressed: _next,
                     ),
@@ -990,7 +1006,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _phone = TextEditingController(text: '+243 ');
+  final _phone = TextEditingController();
   final _pwd = TextEditingController();
   bool _hide = true;
   bool _busy = false;
@@ -1096,11 +1112,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 18),
                     const Center(child: EkWordmark(size: 17, showSub: true)),
                     const SizedBox(height: 34),
-                    EkField(
+                    EkPhoneField(
                       label: 'Numero de telephone',
                       controller: _phone,
-                      icon: Icons.phone_outlined,
-                      keyboard: TextInputType.phone,
                     ),
                     const SizedBox(height: 18),
                     EkField(
@@ -1250,20 +1264,4 @@ class _Steps extends StatelessWidget {
   }
 }
 
-class _Note extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _Note({required this.icon, required this.text});
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 15, color: Ek.textTertiary),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: Ek.body(size: 12, height: 1.5))),
-      ],
-    );
-  }
-}
