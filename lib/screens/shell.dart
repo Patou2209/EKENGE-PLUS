@@ -70,11 +70,9 @@ class _AppShellState extends State<AppShell> {
             ),
         ],
       ),
+      // Barre de navigation en teal fonce (cf. maquette).
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Ek.bgElevated,
-          border: Border(top: BorderSide(color: Ek.hairline)),
-        ),
+        decoration: const BoxDecoration(color: Ek.accentDim),
         child: SafeArea(
           top: false,
           child: Padding(
@@ -105,7 +103,9 @@ class _AppShellState extends State<AppShell> {
                               Icon(
                                 active ? fill : out,
                                 size: 21,
-                                color: active ? Ek.accent : Ek.textTertiary,
+                                color: active
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.65),
                               ),
                               if (badge > 0)
                                 Positioned(
@@ -127,7 +127,9 @@ class _AppShellState extends State<AppShell> {
                             label.toUpperCase(),
                             style: Ek.over(
                               size: 7.5,
-                              color: active ? Ek.accent : Ek.textTertiary,
+                              color: active
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.65),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -135,7 +137,7 @@ class _AppShellState extends State<AppShell> {
                             width: active ? 14 : 0,
                             height: 1.6,
                             decoration: BoxDecoration(
-                              color: Ek.accent,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),

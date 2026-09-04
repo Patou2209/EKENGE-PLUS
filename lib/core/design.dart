@@ -42,7 +42,7 @@ class Ek {
 
   // ---- Typographie --------------------------------------------------------
   static TextStyle wordmark({double size = 15, Color color = textPrimary}) =>
-      GoogleFonts.inter(
+      GoogleFonts.oswald(
         fontSize: size,
         color: color,
         fontWeight: FontWeight.w700,
@@ -51,7 +51,7 @@ class Ek {
       );
 
   static TextStyle over({double size = 10.5, Color color = textTertiary}) =>
-      GoogleFonts.inter(
+      GoogleFonts.oswald(
         fontSize: size,
         color: color,
         fontWeight: FontWeight.w600,
@@ -59,7 +59,7 @@ class Ek {
       );
 
   static TextStyle title({double size = 22, Color color = textPrimary}) =>
-      GoogleFonts.inter(
+      GoogleFonts.oswald(
         fontSize: size,
         color: color,
         fontWeight: FontWeight.w700,
@@ -72,7 +72,7 @@ class Ek {
     Color color = textSecondary,
     FontWeight weight = FontWeight.w400,
     double height = 1.45,
-  }) => GoogleFonts.inter(
+  }) => GoogleFonts.oswald(
     fontSize: size,
     color: color,
     fontWeight: weight,
@@ -80,7 +80,7 @@ class Ek {
   );
 
   static TextStyle num({double size = 26, Color color = textPrimary}) =>
-      GoogleFonts.inter(
+      GoogleFonts.oswald(
         fontSize: size,
         color: color,
         fontWeight: FontWeight.w700,
@@ -114,7 +114,7 @@ class Ek {
         onPrimary: Colors.white,
         onSurface: textPrimary,
       ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.oswaldTextTheme(
         base.textTheme,
       ).apply(bodyColor: textPrimary, displayColor: textPrimary),
       appBarTheme: AppBarTheme(

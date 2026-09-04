@@ -18,63 +18,262 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(flex: 3),
-              Text('Bienvenue', style: Ek.title(size: 28)),
-              const SizedBox(height: 8),
-              Text(
-                'Votre securite personnelle,\nen temps reel.',
-                textAlign: TextAlign.center,
-                style: Ek.body(size: 14, color: Ek.textSecondary),
-              ),
-              const Spacer(flex: 2),
-              Image.asset(
-                'assets/brand/logo.png',
-                width: 230,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const EkMark(size: 120),
-              ),
-              const Spacer(flex: 3),
-              EkButton(
-                label: 'Creer un compte',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PhoneStepScreen()),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.vertical,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 18),
+                // Logo complet EKENGE+
+                Image.asset(
+                  'assets/brand/logo.png',
+                  width: 130,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const EkMark(size: 90),
                 ),
-              ),
-              const SizedBox(height: 12),
-              EkButton(
-                label: 'J\'ai deja un compte',
-                outlined: true,
-                color: Ek.textPrimary,
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-              ),
-              const SizedBox(height: 10),
-              // §11 : fonction Tracking sans creation de compte (visiteur).
-              TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const GuestTrackingScreen(),
+                const SizedBox(height: 8),
+                Container(width: 46, height: 2.4, color: Ek.accent),
+                const SizedBox(height: 18),
+                // Slogan principal
+                Text(
+                  'EN SECURITE,',
+                  textAlign: TextAlign.center,
+                  style: Ek.title(size: 30),
+                ),
+                Text(
+                  'ENSEMBLE.',
+                  textAlign: TextAlign.center,
+                  style: Ek.title(size: 30, color: Ek.accent),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Parce que votre securite et celle\nde vos proches comptent plus que tout.',
+                  textAlign: TextAlign.center,
+                  style: Ek.body(size: 14, color: Ek.textSecondary),
+                ),
+                const SizedBox(height: 26),
+                // Emblème central : bouclier dans un medaillon
+                const _WelcomeEmblem(),
+                const SizedBox(height: 26),
+                // Carte des trois fonctions cles
+                EkCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 16,
+                  ),
+                  shadow: Ek.lift,
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: _WelcomeFeature(
+                          icon: Icons.location_on_outlined,
+                          color: Ek.accent,
+                          title: 'Suivi',
+                          sub: 'en temps reel',
+                        ),
+                      ),
+                      Container(width: 1, height: 52, color: Ek.hairline),
+                      const Expanded(
+                        child: _WelcomeFeature(
+                          icon: Icons.notifications_active_outlined,
+                          color: Ek.danger,
+                          title: 'Alerte',
+                          sub: 'immediate',
+                        ),
+                      ),
+                      Container(width: 1, height: 52, color: Ek.hairline),
+                      const Expanded(
+                        child: _WelcomeFeature(
+                          icon: Icons.verified_user_outlined,
+                          color: Ek.safe,
+                          title: 'SAFE',
+                          sub: 'periodique',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Text(
-                  'Partager ma localisation sans compte',
-                  style: Ek.body(
-                    size: 13,
-                    color: Ek.accent,
-                    weight: FontWeight.w600,
+                const SizedBox(height: 24),
+                EkButton(
+                  label: 'Creer un compte',
+                  icon: Icons.person_add_alt,
+                  color: Ek.accentDim,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PhoneStepScreen()),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-            ],
+                const SizedBox(height: 12),
+                EkButton(
+                  label: 'J\'ai deja un compte',
+                  icon: Icons.person_outline,
+                  outlined: true,
+                  color: Ek.textPrimary,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // §11 : fonction Tracking sans creation de compte (visiteur).
+                EkButton(
+                  label: 'Partager ma localisation sans compte',
+                  icon: Icons.visibility_outlined,
+                  outlined: true,
+                  color: Ek.accentDim,
+                  height: 48,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const GuestTrackingScreen(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Emblème central de l'ecran d'accueil : bouclier du logo dans un
+/// medaillon circulaire avec anneaux decoratifs.
+class _WelcomeEmblem extends StatelessWidget {
+  const _WelcomeEmblem();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 210,
+      height: 210,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Anneaux decoratifs
+          Container(
+            width: 210,
+            height: 210,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Ek.accent.withValues(alpha: 0.25),
+                width: 1.4,
+              ),
+            ),
+          ),
+          Container(
+            width: 186,
+            height: 186,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Ek.accent.withValues(alpha: 0.12),
+                width: 1,
+              ),
+            ),
+          ),
+          // Medaillon
+          Container(
+            width: 164,
+            height: 164,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x22101828),
+                  blurRadius: 30,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Image.asset(
+                'assets/brand/shield.png',
+                width: 96,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.shield_outlined,
+                  size: 70,
+                  color: Ek.accent,
+                ),
+              ),
+            ),
+          ),
+          // Points decoratifs sur les anneaux
+          const Positioned(top: 24, right: 34, child: _EmblemDot()),
+          const Positioned(bottom: 30, left: 26, child: _EmblemDot()),
+          const Positioned(top: 96, left: 4, child: _EmblemDot(small: true)),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmblemDot extends StatelessWidget {
+  final bool small;
+  const _EmblemDot({this.small = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = small ? 6.0 : 9.0;
+    return Container(
+      width: s,
+      height: s,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Ek.accentDim,
+      ),
+    );
+  }
+}
+
+/// Colonne « fonction cle » de la carte d'accueil.
+class _WelcomeFeature extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String sub;
+
+  const _WelcomeFeature({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.sub,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.10),
+          ),
+          child: Icon(icon, size: 20, color: color),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: Ek.body(
+            size: 13,
+            color: Ek.textPrimary,
+            weight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(sub, style: Ek.body(size: 11, color: Ek.textSecondary)),
+      ],
     );
   }
 }
@@ -927,7 +1126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: TextButton(
                         onPressed: _forgot,
                         child: Text(
-                          'Mot de passe oublie',
+                          'Mot de passe oublie ?',
                           style: Ek.body(size: 12.5, color: Ek.accent),
                         ),
                       ),
@@ -939,17 +1138,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       loading: _busy,
                       onPressed: _login,
                     ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => const PhoneStepScreen(),
-                          ),
+                    const SizedBox(height: 20),
+                    // Separateur « OU »
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Text('OU', style: Ek.over(size: 10)),
                         ),
-                        child: Text(
-                          'Creer un nouveau compte',
-                          style: Ek.body(size: 12.5, color: Ek.textSecondary),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    EkButton(
+                      label: 'Creer un nouveau compte',
+                      icon: Icons.person_add_alt,
+                      outlined: true,
+                      color: Ek.accentDim,
+                      onPressed: () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) => const PhoneStepScreen(),
                         ),
                       ),
                     ),

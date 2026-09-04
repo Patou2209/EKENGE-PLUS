@@ -81,10 +81,10 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final st = context.watch<EkState>();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 14),
+      padding: const EdgeInsets.fromLTRB(20, 10, 12, 14),
       child: Row(
         children: [
-          const EkWordmark(size: 15, align: CrossAxisAlignment.start),
+          const EkWordmark(size: 21, align: CrossAxisAlignment.start),
           const Spacer(),
           if (st.trackingActive)
             Padding(
@@ -473,23 +473,71 @@ class _DangerSection extends StatelessWidget {
     final st = context.watch<EkState>();
     final active = st.activeAlert?.kind == AlertKind.danger;
 
-    return Center(
-      child: Column(
-        children: [
-          _DangerButton(active: active),
-          const SizedBox(height: 14),
-          Text(
-            active
-                ? 'Alerte transmise a la liste Urgence'
-                : 'Maintenez pour signaler une situation critique',
-            textAlign: TextAlign.center,
-            style: Ek.body(
-              size: 12,
-              color: active ? Ek.danger : Ek.textTertiary,
+    if (active) {
+      return Center(
+        child: Column(
+          children: [
+            _DangerButton(active: active),
+            const SizedBox(height: 14),
+            Text(
+              'Alerte transmise a la liste Urgence',
+              textAlign: TextAlign.center,
+              style: Ek.body(size: 12, color: Ek.danger),
             ),
+          ],
+        ),
+      );
+    }
+
+    // Libelles lateraux de part et d'autre du bouton (cf. maquette).
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'APPUYEZ',
+                textAlign: TextAlign.right,
+                style: Ek.over(size: 9.5, color: Ek.textSecondary),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'LONGUEMENT',
+                textAlign: TextAlign.right,
+                style: Ek.over(size: 9.5, color: Ek.textSecondary),
+              ),
+              const SizedBox(height: 6),
+              const Icon(
+                Icons.arrow_forward,
+                size: 13,
+                color: Ek.danger,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 10),
+        _DangerButton(active: active),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'POUR SIGNALER',
+                style: Ek.over(size: 9.5, color: Ek.textSecondary),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'UNE SITUATION CRITIQUE',
+                style: Ek.over(size: 9.5, color: Ek.danger),
+              ),
+              const SizedBox(height: 6),
+              const Icon(Icons.arrow_back, size: 13, color: Ek.danger),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

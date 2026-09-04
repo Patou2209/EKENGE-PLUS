@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/design.dart';
-import '../services/backend.dart';
 import '../services/ek_state.dart';
 import '../widgets/common.dart';
 import 'safe_settings_sheet.dart';
 
-/// EKENGE PLUS — Profil, autorisations, securite des donnees (§15),
-/// architecture technique (§12-14).
+/// EKENGE PLUS — Profil, autorisations et securite des donnees (§15).
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -212,36 +210,6 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
 
-                  // ---- §11 / §14 Canaux de communication ----
-                  const EkSectionLabel('Canaux de communication'),
-                  EkCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Channel(
-                          icon: Icons.notifications_active_outlined,
-                          color: Ek.accent,
-                          title: 'Notifications Push',
-                          text:
-                              'Firebase Cloud Messaging. Destinees aux '
-                              'contacts possedant l\'application.',
-                        ),
-                        const Divider(height: 24),
-                        _Channel(
-                          icon: Icons.chat_outlined,
-                          color: Ek.safe,
-                          title: 'WhatsApp Business Platform',
-                          text:
-                              'API officielle Meta. Invitations, alertes '
-                              'Danger, escalades Safe et confirmations de '
-                              'securite emises depuis le numero officiel '
-                              'certifie ${Backend.officialWhatsAppNumber}.',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
                   // ---- §15 Securite des donnees ----
                   const EkSectionLabel('Securite des donnees'),
                   EkCard(
@@ -279,49 +247,6 @@ class ProfileScreen extends StatelessWidget {
                           text:
                               'Respect de la confidentialite : aucune '
                               'donnee transmise a des tiers.',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // ---- §12-14 Architecture technique ----
-                  const EkSectionLabel('Architecture technique'),
-                  EkCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Tech(label: 'Frontend mobile', value: 'Flutter'),
-                        const Divider(height: 18),
-                        _Tech(label: 'Plateformes', value: 'Android · iOS'),
-                        const Divider(height: 18),
-                        _Tech(
-                          label: 'Backend cloud',
-                          value:
-                              'Firebase Authentication · Firestore · '
-                              'Cloud Functions · FCM',
-                        ),
-                        const Divider(height: 18),
-                        _Tech(
-                          label: 'Cartographie',
-                          value: 'Google Maps SDK / Mapbox',
-                        ),
-                        const Divider(height: 18),
-                        _Tech(
-                          label: 'Geolocalisation',
-                          value: 'Geolocator · Background Location Services',
-                        ),
-                        const Divider(height: 18),
-                        _Tech(
-                          label: 'Messagerie',
-                          value: 'WhatsApp Business Platform (API Meta)',
-                        ),
-                        const Divider(height: 18),
-                        _Tech(
-                          label: 'Chaine d\'envoi',
-                          value:
-                              'EKENGE PLUS \u2192 Cloud Functions '
-                              '\u2192 WhatsApp Business API \u2192 Utilisateurs',
                         ),
                       ],
                     ),
@@ -370,10 +295,7 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         const EkWordmark(size: 12),
                         const SizedBox(height: 8),
-                        Text(
-                          'VERSION 1.0.0 · COM.EKENGEPLUS.APP',
-                          style: Ek.over(size: 8),
-                        ),
+                        Text('VERSION 1.0.0', style: Ek.over(size: 8)),
                       ],
                     ),
                   ),
@@ -383,50 +305,6 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Channel extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String text;
-
-  const _Channel({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(11),
-            color: color.withValues(alpha: 0.10),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Icon(icon, size: 17, color: color),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Ek.body(size: 13.5, color: Ek.textPrimary)),
-              const SizedBox(height: 5),
-              Text(text, style: Ek.body(size: 11.5, height: 1.5)),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -449,23 +327,4 @@ class _Secure extends StatelessWidget {
   }
 }
 
-class _Tech extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Tech({required this.label, required this.value});
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label.toUpperCase(), style: Ek.over(size: 8.5)),
-        const SizedBox(height: 5),
-        Text(
-          value,
-          style: Ek.body(size: 12.5, color: Ek.textPrimary, height: 1.45),
-        ),
-      ],
-    );
-  }
-}
