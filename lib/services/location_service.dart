@@ -152,10 +152,27 @@ class LocationService {
 
     if (_realGps && !kIsWeb) {
       _gpsSub?.cancel();
+      var hasFix = false;
       _gpsSub = geo.Geolocator.getPositionStream(
         locationSettings: _settings(),
       ).listen(
         (p) {
+          // 1. Ignorer les releves de mauvaise precision (bruit GPS) :
+          //    un point incertain a plus de 30 m ferait « sauter » la carte.
+          if (p.accuracy > 30) return;
+          // 2. Filtre de deplacement REEL : la position (et le trajet) ne
+          //    se mettent a jour qu'apres un deplacement d'au moins 5 m.
+          //    Le telephone qui bouge sur place (jitter) est ignore.
+          if (hasFix) {
+            final moved = geo.Geolocator.distanceBetween(
+              _lat,
+              _lng,
+              p.latitude,
+              p.longitude,
+            );
+            if (moved < 5) return;
+          }
+          hasFix = true;
           _lat = p.latitude;
           _lng = p.longitude;
           _lastSpeed = (p.speed * 3.6).clamp(0, 300); // m/s -> km/h

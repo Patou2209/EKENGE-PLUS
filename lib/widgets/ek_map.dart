@@ -56,16 +56,52 @@ class EkMap extends StatefulWidget {
   State<EkMap> createState() => _EkMapState();
 }
 
-class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
+class _EkMapState extends State<EkMap> with TickerProviderStateMixin {
   final fm.MapController _map = fm.MapController();
   bool _ready = false;
   bool _follow = true; // recentre automatiquement sur la position suivie
   double _zoom = 16;
+  AnimationController? _camAnim; // animation de camera en cours (flyTo)
 
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1800),
   )..repeat();
+
+  /// Deplacement FLUIDE de la camera (effet flyTo) : interpolation animee
+  /// entre la position actuelle et la destination, sans saut brusque.
+  void _flyTo(ll.LatLng dest, double zoom) {
+    _camAnim?.dispose();
+    final cam = _map.camera;
+    final latTween = Tween<double>(
+      begin: cam.center.latitude,
+      end: dest.latitude,
+    );
+    final lngTween = Tween<double>(
+      begin: cam.center.longitude,
+      end: dest.longitude,
+    );
+    final zoomTween = Tween<double>(begin: cam.zoom, end: zoom);
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _camAnim = ctrl;
+    final anim = CurvedAnimation(parent: ctrl, curve: Curves.easeInOutCubic);
+    ctrl.addListener(() {
+      _map.move(
+        ll.LatLng(latTween.evaluate(anim), lngTween.evaluate(anim)),
+        zoomTween.evaluate(anim),
+      );
+    });
+    ctrl.addStatusListener((s) {
+      if (s == AnimationStatus.completed && _camAnim == ctrl) {
+        ctrl.dispose();
+        _camAnim = null;
+      }
+    });
+    ctrl.forward();
+  }
 
   ll.LatLng get _center {
     final p = widget.focus ??
@@ -78,19 +114,20 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
   @override
   void didUpdateWidget(EkMap old) {
     super.didUpdateWidget(old);
-    // Suivi temps reel : la camera suit la position focalisee.
+    // Suivi temps reel : la camera SUIT la position en douceur (flyTo).
     if (_ready && _follow && widget.focus != null) {
       final f = widget.focus!;
       if (old.focus == null ||
           old.focus!.lat != f.lat ||
           old.focus!.lng != f.lng) {
-        _map.move(ll.LatLng(f.lat, f.lng), _zoom);
+        _flyTo(ll.LatLng(f.lat, f.lng), _zoom);
       }
     }
   }
 
   @override
   void dispose() {
+    _camAnim?.dispose();
     _pulse.dispose();
     _map.dispose();
     super.dispose();
@@ -137,16 +174,15 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
                 },
               ),
               children: [
-                // Tuiles CARTO Voyager (fond OpenStreetMap, gratuites, sans
-                // cle API) en version RETINA @2x : rues et libelles NETS sur
-                // les ecrans haute densite des telephones.
+                // Tuiles officielles OpenStreetMap (gratuites, sans cle API,
+                // sans filigrane) avec RETINA EMULE par flutter_map : les
+                // tuiles sont demandees a un zoom superieur puis affichees
+                // reduites -> rues et libelles NETS sur ecrans haute densite.
                 fm.TileLayer(
-                  urlTemplate:
-                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                  subdomains: const ['a', 'b', 'c', 'd'],
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   retinaMode: fm.RetinaMode.isHighDensity(context),
                   userAgentPackageName: 'com.ekengeplus.app',
-                  maxNativeZoom: 20,
+                  maxNativeZoom: 19,
                 ),
                 // Trajet parcouru (§6 : deplacement mis a jour en temps reel).
                 if (widget.trail.length > 1)
@@ -195,7 +231,7 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
               bottom: 6,
               child: IgnorePointer(
                 child: Text(
-                  '© OpenStreetMap · CARTO',
+                  '© OpenStreetMap',
                   style: Ek.over(size: 7.5, color: Color(0xFF5B6470)),
                 ),
               ),
@@ -217,7 +253,7 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
                       onTap: () {
                         setState(() => _follow = true);
                         _zoom = 16;
-                        _map.move(_center, _zoom);
+                        _flyTo(_center, _zoom);
                       },
                     ),
                   ],
