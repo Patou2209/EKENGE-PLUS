@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../core/design.dart';
+import '../services/location_service.dart';
 
 /// Wordmark EKENGE PLUS — signature typographique de l'application.
 class EkWordmark extends StatelessWidget {
@@ -825,4 +826,73 @@ String ekRelative(DateTime d) {
   if (s.inMinutes < 60) return 'il y a ${s.inMinutes} min';
   if (s.inHours < 24) return 'il y a ${s.inHours} h';
   return ekFormatDateTime(d);
+}
+
+/// Vérifie que la localisation RÉELLE est opérationnelle avant un partage :
+/// GPS de l'appareil activé + permission accordée. Si ce n'est pas le cas,
+/// affiche une boîte de dialogue qui guide l'utilisateur (activer la
+/// localisation ou ouvrir les réglages). Retourne true uniquement quand la
+/// position réelle est disponible — jamais de position simulée.
+Future<bool> ekEnsureLocationReady(BuildContext context) async {
+  final svc = LocationService.instance;
+  var r = await svc.ensureReady();
+  if (r == LocationReadiness.ready) return true;
+  if (!context.mounted) return false;
+
+  final (title, message, action) = switch (r) {
+    LocationReadiness.serviceDisabled => (
+      'Localisation désactivée',
+      'Le GPS de votre téléphone est éteint. Activez la localisation '
+          'dans les réglages pour partager votre position réelle.',
+      'Activer la localisation',
+    ),
+    LocationReadiness.deniedForever => (
+      'Autorisation requise',
+      'L\'accès à la position a été refusé définitivement. Ouvrez les '
+          'réglages de l\'application et autorisez la localisation.',
+      'Ouvrir les réglages',
+    ),
+    LocationReadiness.denied => (
+      'Autorisation requise',
+      'EKENGE PLUS a besoin d\'accéder à votre position pour la partager '
+          'avec vos proches. Aucune position ne sera partagée sans votre '
+          'accord.',
+      'Réessayer',
+    ),
+    _ => (
+      'Localisation indisponible',
+      'Impossible d\'accéder au GPS de cet appareil pour le moment. '
+          'Vérifiez la localisation puis réessayez.',
+      'Réessayer',
+    ),
+  };
+
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title, style: Ek.title(size: 16)),
+      content: Text(message, style: Ek.body(size: 13, height: 1.5)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text('Annuler', style: Ek.body(size: 13)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(action, style: Ek.body(size: 13, color: Ek.accentDim)),
+        ),
+      ],
+    ),
+  );
+  if (go != true) return false;
+
+  // Action de deblocage selon le diagnostic.
+  if (r == LocationReadiness.serviceDisabled) {
+    await svc.openLocationSettings();
+  } else if (r == LocationReadiness.deniedForever) {
+    await svc.openAppSettings();
+  }
+  // Nouvelle verification au retour des reglages / apres nouvel essai.
+  r = await svc.ensureReady();
+  return r == LocationReadiness.ready;
 }

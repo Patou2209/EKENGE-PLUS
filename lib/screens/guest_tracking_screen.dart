@@ -277,7 +277,10 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   /// Demarre (ou redemarre) la transmission de la position.
   Future<void> _resumeSharing() async {
     final loc = LocationService.instance;
-    await loc.requestPermission();
+    // Verification stricte : GPS active + permission accordee, sinon
+    // l'utilisateur est guide — aucune position simulee n'est partagee.
+    final ok = await ekEnsureLocationReady(context);
+    if (!ok || !mounted) return;
     loc.start();
     await _sub?.cancel();
     _sub = loc.stream.listen((p) {

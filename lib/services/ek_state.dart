@@ -484,6 +484,17 @@ class EkState extends ChangeNotifier {
     return ok;
   }
 
+  /// Vérifie que la localisation réelle est opérationnelle (GPS activé +
+  /// permission accordée) et retourne un diagnostic précis pour guider
+  /// l'utilisateur. AUCUN partage ne démarre sans position réelle.
+  Future<LocationReadiness> ensureLocationReady() async {
+    final r = await LocationService.instance.ensureReady();
+    locationPermission = r == LocationReadiness.ready;
+    await _persist();
+    notifyListeners();
+    return r;
+  }
+
   /// §4 Lecture du repertoire reel de l'appareil, puis §5 detection des
   /// numeros possedant deja un compte EKENGE PLUS.
   ///
@@ -654,13 +665,11 @@ class EkState extends ChangeNotifier {
   // §6 Fonction Tracking
   // =======================================================================
   Future<void> startTracking({bool notify = true, String? reason}) async {
-    // La vraie demande de permission Android (geolocator) doit etre faite
-    // au moins une fois par session, meme si un ancien etat persiste
-    // pretend que la permission est deja accordee.
-    if (!locationPermission || !LocationService.instance.permissionGranted) {
-      final ok = await requestLocationPermission();
-      if (!ok) return;
-    }
+    // La localisation réelle est OBLIGATOIRE avant tout partage : GPS de
+    // l'appareil activé + permission accordée, vérifiés à CHAQUE démarrage
+    // (jamais de position simulée sur téléphone).
+    final ready = await ensureLocationReady();
+    if (ready != LocationReadiness.ready) return;
     if (trackingActive) return;
 
     trackingActive = true;
@@ -750,9 +759,8 @@ class EkState extends ChangeNotifier {
   // =======================================================================
   Future<void> triggerDanger() async {
     final now = DateTime.now();
-    if (!locationPermission || !LocationService.instance.permissionGranted) {
-      await requestLocationPermission();
-    }
+    // L'alerte part TOUJOURS, mais on tente d'obtenir la position reelle.
+    await ensureLocationReady();
 
     // Le suivi en temps reel est automatiquement active.
     if (!trackingActive) {

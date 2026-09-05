@@ -137,12 +137,16 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
                 },
               ),
               children: [
-                // Tuiles officielles OpenStreetMap (gratuites, sans cle API),
-                // affichees en clair — identiques a la carte web de suivi.
+                // Tuiles CARTO Voyager (fond OpenStreetMap, gratuites, sans
+                // cle API) en version RETINA @2x : rues et libelles NETS sur
+                // les ecrans haute densite des telephones.
                 fm.TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate:
+                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                  retinaMode: fm.RetinaMode.isHighDensity(context),
                   userAgentPackageName: 'com.ekengeplus.app',
-                  maxNativeZoom: 19,
+                  maxNativeZoom: 20,
                 ),
                 // Trajet parcouru (§6 : deplacement mis a jour en temps reel).
                 if (widget.trail.length > 1)
@@ -191,7 +195,7 @@ class _EkMapState extends State<EkMap> with SingleTickerProviderStateMixin {
               bottom: 6,
               child: IgnorePointer(
                 child: Text(
-                  '© OpenStreetMap',
+                  '© OpenStreetMap · CARTO',
                   style: Ek.over(size: 7.5, color: Color(0xFF5B6470)),
                 ),
               ),

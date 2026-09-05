@@ -13,6 +13,24 @@ import '../models/models.dart';
 /// le materiel GPS est indisponible (preview web), le service bascule sur un
 /// flux de positions simule afin que l'application reste utilisable.
 ///
+/// Diagnostic de disponibilité du GPS avant tout partage de position.
+enum LocationReadiness {
+  /// GPS actif et permission accordée : positions réelles.
+  ready,
+
+  /// Le service de localisation de l'appareil est désactivé (GPS éteint).
+  serviceDisabled,
+
+  /// Permission refusée pour cette session.
+  denied,
+
+  /// Permission refusée définitivement : passer par les réglages système.
+  deniedForever,
+
+  /// Matériel ou API indisponible (preview web).
+  unavailable,
+}
+
 /// SUIVI EN ARRIERE-PLAN (§13 Background Location Services) : sur Android,
 /// le flux GPS est adosse a un FOREGROUND SERVICE natif avec notification
 /// persistante « EKENGE PLUS vous protege ». La position continue donc
@@ -51,43 +69,81 @@ class LocationService {
 
   double _lastSpeed = 0;
 
-  /// §15 Gestion stricte des permissions mobiles : vraie demande Android
-  /// (boite de dialogue systeme). Retourne true meme en cas de refus afin
-  /// de ne pas bloquer l'app : le mode simule prend alors le relais.
-  Future<bool> requestPermission() async {
+  /// §15 Gestion stricte des permissions mobiles : vérifie que le GPS de
+  /// l'appareil est ACTIVÉ puis demande la permission système. Retourne un
+  /// diagnostic précis afin que l'interface puisse guider l'utilisateur
+  /// (activer la localisation, ouvrir les réglages…) au lieu de partager
+  /// une position erronée.
+  Future<LocationReadiness> ensureReady() async {
     if (kIsWeb) {
       _permissionGranted = true;
       _realGps = false;
-      return true;
+      return LocationReadiness.ready;
     }
     try {
-      final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
+      // 1. Le service de localisation de l'appareil doit être actif.
+      if (!await geo.Geolocator.isLocationServiceEnabled()) {
+        _realGps = false;
+        return LocationReadiness.serviceDisabled;
+      }
+      // 2. Permission d'accès à la position (boite de dialogue native).
       var permission = await geo.Geolocator.checkPermission();
       if (permission == geo.LocationPermission.denied) {
         permission = await geo.Geolocator.requestPermission();
       }
-      final granted = permission == geo.LocationPermission.whileInUse ||
+      if (permission == geo.LocationPermission.deniedForever) {
+        _realGps = false;
+        return LocationReadiness.deniedForever;
+      }
+      final granted =
+          permission == geo.LocationPermission.whileInUse ||
           permission == geo.LocationPermission.always;
-      _realGps = granted && serviceEnabled;
-      if (_realGps) {
-        // Position initiale immediate pour centrer la carte.
+      if (!granted) {
+        _realGps = false;
+        return LocationReadiness.denied;
+      }
+      _realGps = true;
+      _permissionGranted = true;
+      // 3. Position initiale immédiate pour centrer la carte.
+      try {
+        final p = await geo.Geolocator.getCurrentPosition(
+          locationSettings: const geo.LocationSettings(
+            accuracy: geo.LocationAccuracy.high,
+          ),
+        ).timeout(const Duration(seconds: 15));
+        _lat = p.latitude;
+        _lng = p.longitude;
+      } catch (_) {
+        // Dernière position connue en attendant le premier point GPS.
         try {
-          final p = await geo.Geolocator.getCurrentPosition(
-            locationSettings: const geo.LocationSettings(
-              accuracy: geo.LocationAccuracy.high,
-            ),
-          ).timeout(const Duration(seconds: 10));
-          _lat = p.latitude;
-          _lng = p.longitude;
+          final last = await geo.Geolocator.getLastKnownPosition();
+          if (last != null) {
+            _lat = last.latitude;
+            _lng = last.longitude;
+          }
         } catch (_) {}
       }
+      return LocationReadiness.ready;
     } catch (e) {
-      if (kDebugMode) debugPrint('[Location] permission: $e');
+      if (kDebugMode) debugPrint('[Location] ensureReady: $e');
       _realGps = false;
+      return LocationReadiness.unavailable;
     }
-    _permissionGranted = true;
-    return true;
   }
+
+  /// Compatibilité : vraie demande de permission, true uniquement si le
+  /// GPS réel est opérationnel (ou preview web).
+  Future<bool> requestPermission() async {
+    final r = await ensureReady();
+    return r == LocationReadiness.ready;
+  }
+
+  /// Ouvre les réglages de localisation de l'appareil (GPS désactivé).
+  Future<void> openLocationSettings() =>
+      geo.Geolocator.openLocationSettings();
+
+  /// Ouvre les réglages de l'application (permission refusée définitivement).
+  Future<void> openAppSettings() => geo.Geolocator.openAppSettings();
 
   /// Demarre la transmission continue de la localisation.
   void start({Duration interval = const Duration(seconds: 3)}) {
@@ -114,8 +170,12 @@ class LocationService {
       );
       // Premiere emission immediate.
       _ctrl.add(current);
-    } else {
+    } else if (kIsWeb) {
+      // La simulation n'existe QUE pour l'apercu web : sur telephone,
+      // jamais de position inventee.
       _startSimulation(interval);
+    } else {
+      _running = false;
     }
   }
 
