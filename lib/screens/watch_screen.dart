@@ -7,6 +7,7 @@ import '../services/ek_state.dart';
 import '../services/location_service.dart';
 import '../widgets/common.dart';
 import '../widgets/ek_map.dart';
+import 'follow_screen.dart';
 
 /// EKENGE PLUS — §5 / §6 Suivi des proches.
 ///
@@ -81,29 +82,6 @@ class WatchScreen extends StatelessWidget {
                             child: _WatchedCard(index: i),
                           );
                         }),
-                        const SizedBox(height: 8),
-                        EkCard(
-                          padding: const EdgeInsets.all(14),
-                          color: Ek.surfaceHigh,
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.science_outlined,
-                                size: 16,
-                                color: Ek.textSecondary,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Les commandes de simulation permettent de '
-                                  'vérifier la réception des alertes émises par '
-                                  'vos proches.',
-                                  style: Ek.body(size: 11.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
             ),
@@ -218,53 +196,92 @@ class _WatchedCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
+              // SUIVRE : carte en gros plan avec la position en direct.
               Expanded(
                 child: TextButton.icon(
-                  onPressed: () => st.toggleWatchedTracking(index),
-                  icon: Icon(
-                    w.trackingActive
-                        ? Icons.pause_circle_outline
-                        : Icons.play_circle_outline,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => FollowScreen(phone: w.phone),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.travel_explore_outlined,
                     size: 16,
-                    color: Ek.textSecondary,
+                    color: Ek.accentDim,
                   ),
                   label: Text(
-                    w.trackingActive ? 'ARRÊTER' : 'SIMULER TRACKING',
-                    style: Ek.over(size: 9, color: Ek.textSecondary),
+                    'SUIVRE',
+                    style: Ek.over(size: 9.5, color: Ek.accentDim),
                   ),
                 ),
               ),
               Container(width: 1, height: 22, color: Ek.hairline),
+              // ALERTER : previent ce proche que VOUS etes en danger et
+              // partage votre position exacte en direct.
               Expanded(
-                child: danger
-                    ? TextButton.icon(
-                        onPressed: () => st.clearWatchedAlert(index),
-                        icon: const Icon(
-                          Icons.verified_user_outlined,
-                          size: 16,
-                          color: Ek.safe,
-                        ),
-                        label: Text(
-                          'CLÔTURER',
-                          style: Ek.over(size: 9, color: Ek.safe),
-                        ),
-                      )
-                    : TextButton.icon(
-                        onPressed: () => st.simulateWatchedDanger(index),
-                        icon: const Icon(
-                          Icons.crisis_alert_outlined,
-                          size: 16,
-                          color: Ek.danger,
-                        ),
-                        label: Text(
-                          'SIMULER DANGER',
-                          style: Ek.over(size: 9, color: Ek.danger),
-                        ),
-                      ),
+                child: TextButton.icon(
+                  onPressed: () => _confirmAlert(context, st, w.name),
+                  icon: const Icon(
+                    Icons.crisis_alert_outlined,
+                    size: 16,
+                    color: Ek.danger,
+                  ),
+                  label: Text(
+                    'ALERTER',
+                    style: Ek.over(size: 9.5, color: Ek.danger),
+                  ),
+                ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAlert(
+    BuildContext context,
+    EkState st,
+    String name,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Ek.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('Alerter $name ?', style: Ek.body(size: 16)),
+        content: Text(
+          '$name recevra une alerte indiquant que vous êtes en danger et '
+          'pourra suivre votre position exacte en direct.',
+          style: Ek.body(size: 12.5, color: Ek.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('ANNULER', style: Ek.over(size: 10)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('ALERTER', style: Ek.over(size: 10, color: Ek.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    // Verification stricte GPS/permission avant l'envoi.
+    final ready = await ekEnsureLocationReady(context);
+    if (!ready || !context.mounted) return;
+    await st.alertContact(index);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Ek.ink,
+        content: Text(
+          'Alerte envoyée à $name — il peut maintenant suivre votre position.',
+          style: Ek.body(size: 12.5, color: Colors.white),
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/backend.dart';
 import '../services/ek_state.dart';
 import '../widgets/common.dart';
+import 'follow_screen.dart';
 
 /// EKENGE PLUS — §11 Notifications.
 ///
@@ -126,6 +127,17 @@ class _Received extends StatelessWidget {
           color: n.severity == AlertKind.none
               ? null
               : color.withValues(alpha: 0.05),
+          // Toucher une notification liee a un proche ouvre sa carte de
+          // suivi en direct (position exacte).
+          onTap: n.fromPhone.isEmpty
+              ? null
+              : () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FollowScreen(phone: n.fromPhone),
+                    ),
+                  );
+                },
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -167,6 +179,23 @@ class _Received extends StatelessWidget {
                     if (n.body.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(n.body, style: Ek.body(size: 12, height: 1.5)),
+                    ],
+                    if (n.fromPhone.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.travel_explore_outlined,
+                            size: 13,
+                            color: color,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'TOUCHER POUR SUIVRE SUR LA CARTE',
+                            style: Ek.over(size: 8.5, color: color),
+                          ),
+                        ],
+                      ),
                     ],
                   ],
                 ),

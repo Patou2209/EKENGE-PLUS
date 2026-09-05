@@ -287,6 +287,27 @@ class FirebaseBackend {
     } catch (_) {}
   }
 
+  /// Flux TEMPS RÉEL de la position publiée par [phone] (doc positions/…).
+  /// Émet null tant qu'aucune position n'a été publiée.
+  Stream<GeoPoint?> positionStream(String phone) {
+    if (!_initialized) return const Stream.empty();
+    return _db.collection('positions').doc(phone).snapshots().map((doc) {
+      final d = doc.data();
+      if (d == null) return null;
+      final lat = (d['lat'] as num?)?.toDouble();
+      final lng = (d['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null) return null;
+      return GeoPoint(
+        lat: lat,
+        lng: lng,
+        at: DateTime.fromMillisecondsSinceEpoch(
+          (d['at'] as num?)?.toInt() ?? 0,
+        ),
+        speedKmh: (d['speed_kmh'] as num?)?.toDouble() ?? 0,
+      );
+    });
+  }
+
   // =========================================================================
   // Firestore — Alertes (§7, §9) et journal (§12)
   // =========================================================================

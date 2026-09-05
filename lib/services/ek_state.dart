@@ -18,6 +18,9 @@ class PushNotification {
   final String body;
   final DateTime at;
   final AlertKind severity;
+
+  /// Numéro de l'expéditeur : permet d'ouvrir sa carte de suivi en direct.
+  final String fromPhone;
   bool read;
 
   PushNotification({
@@ -26,6 +29,7 @@ class PushNotification {
     required this.body,
     required this.at,
     required this.severity,
+    this.fromPhone = '',
     this.read = false,
   });
 
@@ -35,6 +39,7 @@ class PushNotification {
     'body': body,
     'at': at.toIso8601String(),
     'severity': severity.name,
+    'from_phone': fromPhone,
     'read': read,
   };
 
@@ -47,6 +52,7 @@ class PushNotification {
       (v) => v.name == j['severity'],
       orElse: () => AlertKind.none,
     ),
+    fromPhone: (j['from_phone'] as String?) ?? '',
     read: (j['read'] as bool?) ?? false,
   );
 }
@@ -182,12 +188,80 @@ class EkState extends ChangeNotifier {
         'tracking_stop' => 'Partage terminé',
         _ => 'EKENGE PLUS',
       };
-      _pushToSelf(title, body, _severityFromTitle(title));
+      _pushToSelf(
+        title,
+        body,
+        _severityFromTitle(title),
+        fromPhone: fromPhone,
+      );
+      // Statut REEL du proche : son Tracking / son alerte mettent à jour
+      // la liste « Proches » immédiatement.
+      final wi = watched.indexWhere((w) => w.phone == fromPhone);
+      if (wi >= 0) {
+        switch (kind) {
+          case 'tracking_start':
+            watched[wi] = watched[wi].copyWith(
+              trackingActive: true,
+              lastUpdate: DateTime.now(),
+            );
+            _watchPeerPosition(fromPhone);
+          case 'tracking_stop':
+            watched[wi] = watched[wi].copyWith(
+              trackingActive: false,
+              alert: AlertKind.none,
+              lastUpdate: DateTime.now(),
+            );
+          case 'danger':
+          case 'safe_level2':
+            watched[wi] = watched[wi].copyWith(
+              trackingActive: true,
+              alert: AlertKind.danger,
+              lastUpdate: DateTime.now(),
+            );
+            _watchPeerPosition(fromPhone);
+          case 'safe_confirmed':
+            watched[wi] = watched[wi].copyWith(
+              alert: AlertKind.none,
+              lastUpdate: DateTime.now(),
+            );
+        }
+      }
       if (kind == 'danger' || kind == 'safe_level2') {
         AlarmSound.instance.chirp();
       }
       notifyListeners();
     });
+  }
+
+  // =======================================================================
+  // §5/§6 Suivi REEL des proches : positions Firestore en temps reel
+  // =======================================================================
+  final Map<String, StreamSubscription<GeoPoint?>> _peerSubs = {};
+
+  /// Ecoute la position temps reel publiee par [phone] sur Firestore.
+  void _watchPeerPosition(String phone) {
+    if (_peerSubs.containsKey(phone)) return;
+    _peerSubs[phone] = _fb.positionStream(phone).listen((p) {
+      if (p == null) return;
+      final i = watched.indexWhere((w) => w.phone == phone);
+      if (i < 0) return;
+      // Position recente (< 3 min) = proche EN LIGNE.
+      final fresh =
+          DateTime.now().difference(p.at) < const Duration(minutes: 3);
+      watched[i] = watched[i].copyWith(
+        position: p,
+        lastUpdate: p.at,
+        trackingActive: fresh ? true : watched[i].trackingActive,
+      );
+      notifyListeners();
+    });
+  }
+
+  void _stopPeerSubs() {
+    for (final s in _peerSubs.values) {
+      s.cancel();
+    }
+    _peerSubs.clear();
   }
 
   static AlertKind _severityFromTitle(String title) {
@@ -712,7 +786,9 @@ class EkState extends ChangeNotifier {
     nextSafeCheck = null;
     safeCheckPending = false;
     AlarmSound.instance.stop();
-    _stopClock();
+    // L'horloge reste active s'il y a des proches suivis (detection de
+    // l'anciennete de leur position -> statut hors ligne).
+    if (watched.isEmpty) _stopClock();
 
     if (!silent) {
       for (final c in trackingList) {
@@ -741,15 +817,6 @@ class EkState extends ChangeNotifier {
     // §6 : position temps reel publiee sur Firestore pour les proches.
     if (trackingActive && user != null) {
       _fb.pushPosition(user!.phone, p);
-    }
-    // Mise a jour temps reel des proches suivis.
-    for (var i = 0; i < watched.length; i++) {
-      if (watched[i].trackingActive) {
-        watched[i] = watched[i].copyWith(
-          position: LocationService.instance.drift(watched[i].position),
-          lastUpdate: DateTime.now(),
-        );
-      }
     }
     notifyListeners();
   }
@@ -1089,7 +1156,12 @@ class EkState extends ChangeNotifier {
     );
   }
 
-  void _pushToSelf(String title, String body, AlertKind severity) {
+  void _pushToSelf(
+    String title,
+    String body,
+    AlertKind severity, {
+    String fromPhone = '',
+  }) {
     inbox.insert(
       0,
       PushNotification(
@@ -1098,6 +1170,7 @@ class EkState extends ChangeNotifier {
         body: body,
         at: DateTime.now(),
         severity: severity,
+        fromPhone: fromPhone,
       ),
     );
   }
@@ -1167,6 +1240,18 @@ class EkState extends ChangeNotifier {
   void _onTick() {
     final now = DateTime.now();
 
+    // Proches : une position trop ancienne (> 3 min) bascule le contact
+    // hors ligne (le partage s'est interrompu cote emetteur).
+    var watchedChanged = false;
+    for (var i = 0; i < watched.length; i++) {
+      if (watched[i].trackingActive &&
+          now.difference(watched[i].lastUpdate).inMinutes >= 3) {
+        watched[i] = watched[i].copyWith(trackingActive: false);
+        watchedChanged = true;
+      }
+    }
+    if (watchedChanged) notifyListeners();
+
     // Declenchement de la verification periodique.
     if (trackingActive &&
         safeEnabled &&
@@ -1234,6 +1319,7 @@ class EkState extends ChangeNotifier {
   // §5 Proches suivis
   // =======================================================================
   void _seedWatched() {
+    _stopPeerSubs();
     watched.clear();
     for (final c in contacts.where((e) => e.sync == ContactSync.linked)) {
       watched.add(
@@ -1246,58 +1332,51 @@ class EkState extends ChangeNotifier {
           lastUpdate: DateTime.now(),
         ),
       );
+      // Suivi REEL : la derniere position publiee par ce proche sur
+      // Firestore met a jour son statut (en ligne / hors ligne) et sa
+      // position en temps reel.
+      _watchPeerPosition(c.phone);
     }
+    // Horloge necessaire pour basculer un proche hors ligne quand sa
+    // position devient trop ancienne.
+    if (watched.isNotEmpty) _startClock();
   }
 
-  /// Simulation reciproque : un proche active son Tracking / declenche Danger.
-  void toggleWatchedTracking(int i) {
+  /// §5 ALERTE REELLE vers un proche : lui signale que VOUS êtes en danger
+  /// (notification + WhatsApp), active votre Tracking pour qu'il puisse
+  /// suivre votre position exacte en direct.
+  Future<void> alertContact(int i) async {
     final w = watched[i];
-    watched[i] = w.copyWith(
-      trackingActive: !w.trackingActive,
-      lastUpdate: DateTime.now(),
+    final c = contacts.firstWhere(
+      (e) => e.phone == w.phone,
+      orElse: () => SafetyContact(
+        id: 'tmp_${w.phone}',
+        name: w.name,
+        phone: w.phone,
+        lists: const {},
+        sync: ContactSync.linked,
+        addedAt: DateTime.now(),
+      ),
     );
-    if (!w.trackingActive) {
-      _pushToSelf(
-        '${w.name} partage sa localisation',
-        'Vous pouvez consulter sa position sur la carte.',
-        AlertKind.none,
-      );
-      _startClock();
-    } else {
-      watched[i] = watched[i].copyWith(alert: AlertKind.none);
+    // Votre position doit etre partagee pour qu'il puisse vous suivre.
+    await ensureLocationReady();
+    if (!trackingActive) {
+      await startTracking(notify: false, reason: 'Alerte envoyée à ${w.name}');
     }
-    notifyListeners();
-  }
-
-  void simulateWatchedDanger(int i) {
-    final w = watched[i];
-    watched[i] = w.copyWith(
-      alert: AlertKind.danger,
-      trackingActive: true,
-      lastUpdate: DateTime.now(),
-    );
-    AlarmSound.instance.chirp();
-    _pushToSelf(
-      'ALERTE : ${w.name} se sent en danger',
-      'Consultez sa position actuelle dans EKENGE PLUS.',
-      AlertKind.danger,
+    await _send(
+      c,
+      Channel.push,
+      'ALERTE : ${user!.fullName} se sent en danger et a besoin de vous. '
+          'Suivez sa position en direct dans EKENGE PLUS.',
+      'danger',
     );
     _log(
       EkEventType.dangerTriggered,
-      'Alerte reçue',
-      '${w.name} a déclenché une alerte Danger',
+      'Alerte envoyée',
+      'Alerte personnelle transmise à ${w.name}',
+      pos: position,
     );
-    _startClock();
-    notifyListeners();
-  }
-
-  void clearWatchedAlert(int i) {
-    watched[i] = watched[i].copyWith(alert: AlertKind.none);
-    _pushToSelf(
-      '${watched[i].name} a confirmé être en sécurité.',
-      '',
-      AlertKind.none,
-    );
+    await _persist();
     notifyListeners();
   }
 
@@ -1307,6 +1386,7 @@ class EkState extends ChangeNotifier {
   @override
   void dispose() {
     _locSub?.cancel();
+    _stopPeerSubs();
     _stopClock();
     super.dispose();
   }
