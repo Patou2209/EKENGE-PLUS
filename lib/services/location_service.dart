@@ -130,10 +130,10 @@ class LocationService {
         intervalDuration: const Duration(seconds: 5),
         // Notification persistante : le systeme ne peut pas tuer le suivi.
         foregroundNotificationConfig: const geo.ForegroundNotificationConfig(
-          notificationTitle: 'EKENGE PLUS vous protege',
+          notificationTitle: 'EKENGE PLUS vous protège',
           notificationText:
               'Partage de position en cours — vos proches peuvent vous suivre '
-              'en temps reel, meme ecran verrouille.',
+              'en temps réel, même écran verrouillé.',
           notificationIcon: geo.AndroidResource(
             name: 'ic_launcher',
             defType: 'mipmap',

@@ -22,8 +22,8 @@ class JournalScreen extends StatelessWidget {
         child: Column(
           children: [
             EkHeader(
-              title: 'Journal de securite',
-              subtitle: 'Historique des evenements',
+              title: 'Journal de sécurité',
+              subtitle: 'Historique des événements',
               back: false,
               actions: [
                 IconButton(
@@ -57,8 +57,8 @@ class JournalScreen extends StatelessWidget {
                                 style: Ek.title(size: 16),
                               ),
                               content: Text(
-                                'L\'historique des evenements de securite sera '
-                                'definitivement supprime.',
+                                'L\'historique des événements de sécurité sera '
+                                'définitivement supprime.',
                                 style: Ek.body(size: 13),
                               ),
                               actions: [
@@ -96,8 +96,8 @@ class JournalScreen extends StatelessWidget {
                       title: 'Journal vide',
                       message:
                           'Chaque activation de Tracking, alerte Danger, '
-                          'verification Safe, escalade et confirmation de '
-                          'securite est enregistree ici.',
+                          'vérification Safe, escalade et confirmation de '
+                          'sécurité est enregistrée ici.',
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),

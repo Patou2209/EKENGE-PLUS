@@ -30,19 +30,24 @@ class WelcomeScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 18),
-                // Logo complet EKENGE+
-                Image.asset(
-                  'assets/brand/logo.png',
-                  width: 130,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const EkMark(size: 90),
+                // Marque texte EKENGE+
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: 'EKENGE', style: Ek.wordmark(size: 28)),
+                      TextSpan(
+                        text: '+',
+                        style: Ek.wordmark(size: 28, color: Ek.accent),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Container(width: 46, height: 2.4, color: Ek.accent),
                 const SizedBox(height: 18),
                 // Slogan principal
                 Text(
-                  'EN SECURITE,',
+                  'EN SÉCURITÉ,',
                   textAlign: TextAlign.center,
                   style: Ek.title(size: 30),
                 ),
@@ -53,7 +58,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Parce que votre securite et celle\nde vos proches comptent plus que tout.',
+                  'Parce que votre sécurité et celle\nde vos proches comptent plus que tout.',
                   textAlign: TextAlign.center,
                   style: Ek.body(size: 14, color: Ek.textSecondary),
                 ),
@@ -75,7 +80,7 @@ class WelcomeScreen extends StatelessWidget {
                           icon: Icons.location_on_outlined,
                           color: Ek.accent,
                           title: 'Suivi',
-                          sub: 'en temps reel',
+                          sub: 'en temps réel',
                         ),
                       ),
                       Container(width: 1, height: 52, color: Ek.hairline),
@@ -84,7 +89,7 @@ class WelcomeScreen extends StatelessWidget {
                           icon: Icons.notifications_active_outlined,
                           color: Ek.danger,
                           title: 'Alerte',
-                          sub: 'immediate',
+                          sub: 'immédiate',
                         ),
                       ),
                       Container(width: 1, height: 52, color: Ek.hairline),
@@ -101,7 +106,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 EkButton(
-                  label: 'Creer un compte',
+                  label: 'Créer un compte',
                   icon: Icons.person_add_alt,
                   color: Ek.accentDim,
                   onPressed: () => Navigator.of(context).push(
@@ -110,7 +115,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 EkButton(
-                  label: 'J\'ai deja un compte',
+                  label: 'J\'ai déjà un compte',
                   icon: Icons.person_outline,
                   outlined: true,
                   color: Ek.textPrimary,
@@ -309,15 +314,15 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
     final phone = Backend.normalizePhone(_phone.text);
 
     if (_first.text.trim().isEmpty || _last.text.trim().isEmpty) {
-      setState(() => _err = 'Prenom et nom obligatoires');
+      setState(() => _err = 'Prénom et nom obligatoires');
       return;
     }
     if (phone.length < 9) {
-      setState(() => _err = 'Numero de telephone invalide');
+      setState(() => _err = 'Numéro de téléphone invalide');
       return;
     }
     if (await st.accountExists(phone)) {
-      setState(() => _err = 'Un compte existe deja avec ce numero');
+      setState(() => _err = 'Un compte existe déjà avec ce numéro');
       return;
     }
 
@@ -333,9 +338,9 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
         setState(() {
           _busy = false;
           _err =
-              'Firebase ne repond pas (aucun callback en 150 s). '
-              'Verifiez la connexion internet et les services Google Play '
-              'de l\'appareil, puis reessayez.';
+              'Firebase ne répond pas (aucun callback en 150 s). '
+              'Vérifiez la connexion internet et les services Google Play '
+              'de l\'appareil, puis réessayez.';
         });
       }
     });
@@ -393,8 +398,8 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
         child: Column(
           children: [
             const EkHeader(
-              title: 'Creation de compte',
-              subtitle: 'Etape 1 sur 4 · Identite et numero',
+              title: 'Création de compte',
+              subtitle: 'Étape 1 sur 4 · Identité et numéro',
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -405,7 +410,7 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
                     const _Steps(current: 0),
                     const SizedBox(height: 26),
                     EkField(
-                      label: 'Prenom',
+                      label: 'Prénom',
                       controller: _first,
                       hint: 'Jean',
                       icon: Icons.badge_outlined,
@@ -421,7 +426,7 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
                     ),
                     const SizedBox(height: 18),
                     EkPhoneField(
-                      label: 'Numero de telephone',
+                      label: 'Numéro de téléphone',
                       controller: _phone,
                       error: _err,
                     ),
@@ -442,9 +447,9 @@ class _PhoneStepScreenState extends State<PhoneStepScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Le numero de telephone constitue l\'identifiant '
-                              'unique de votre compte. Un code de verification '
-                              'vous sera envoye par WhatsApp.',
+                              'Le numéro de téléphone constitue l\'identifiant '
+                              'unique de votre compte. Un code de vérification '
+                              'vous sera envoyé par WhatsApp.',
                               style: Ek.body(size: 12, height: 1.5),
                             ),
                           ),
@@ -604,7 +609,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (!ok) {
-      setState(() => _err = 'Code incorrect ou expire');
+      setState(() => _err = 'Code incorrect ou expiré');
       return;
     }
     _goNext();
@@ -617,12 +622,12 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
         child: Column(
           children: [
             EkHeader(
-              title: 'Verification du numero',
+              title: 'Vérification du numéro',
               subtitle: widget.resetMode
-                  ? (_viaSms ? 'Code envoye par SMS' : 'Code envoye par WhatsApp')
+                  ? (_viaSms ? 'Code envoyé par SMS' : 'Code envoyé par WhatsApp')
                   : (_viaSms
-                        ? 'Etape 2 sur 4 · Code SMS'
-                        : 'Etape 2 sur 4 · Code WhatsApp'),
+                        ? 'Étape 2 sur 4 · Code SMS'
+                        : 'Étape 2 sur 4 · Code WhatsApp'),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -650,7 +655,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Text('Code envoye au', style: Ek.body(size: 12.5)),
+                          Text('Code envoyé au', style: Ek.body(size: 12.5)),
                           const SizedBox(height: 4),
                           Text(widget.phone, style: Ek.title(size: 17)),
                         ],
@@ -658,7 +663,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                     ),
                     const SizedBox(height: 28),
                     EkField(
-                      label: 'Code de verification',
+                      label: 'Code de vérification',
                       controller: _code,
                       hint: '000000',
                       icon: Icons.pin_outlined,
@@ -689,19 +694,19 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _viaSms ? 'SMS ENVOYE' : 'WHATSAPP ENVOYE',
+                                  _viaSms ? 'SMS ENVOYÉ' : 'WHATSAPP ENVOYÉ',
                                   style: Ek.over(size: 9, color: Ek.safe),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   _viaSms
-                                      ? 'Un code de verification a ete envoye '
-                                            'par SMS a ${widget.phone}. La '
-                                            'reception peut prendre jusqu\'a '
+                                      ? 'Un code de vérification a été envoyé '
+                                            'par SMS à ${widget.phone}. La '
+                                            'réception peut prendre jusqu\'à '
                                             '2 minutes.'
-                                      : 'Un code de verification a ete envoye '
-                                            'par WhatsApp a ${widget.phone}. La '
-                                            'reception peut prendre jusqu\'a '
+                                      : 'Un code de vérification a été envoyé '
+                                            'par WhatsApp à ${widget.phone}. La '
+                                            'réception peut prendre jusqu\'à '
                                             '2 minutes.',
                                   style: Ek.body(
                                     size: 13,
@@ -744,7 +749,7 @@ class _OtpStepScreenState extends State<OtpStepScreen> {
                     ],
                     const SizedBox(height: 24),
                     EkButton(
-                      label: 'Verifier le code',
+                      label: 'Vérifier le code',
                       icon: Icons.check,
                       loading: _busy,
                       onPressed: _code.text.length >= 6 ? _verify : _verify,
@@ -853,7 +858,7 @@ class _PasswordStepScreenState extends State<PasswordStepScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Mot de passe reinitialise. Vous pouvez vous connecter.',
+            'Mot de passe réinitialisé. Vous pouvez vous connecter.',
           ),
         ),
       );
@@ -871,7 +876,7 @@ class _PasswordStepScreenState extends State<PasswordStepScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _err = 'Creation du compte impossible. Reessayez.';
+        _err = 'Création du compte impossible. Réessayez.';
       });
       return;
     }
@@ -886,7 +891,7 @@ class _PasswordStepScreenState extends State<PasswordStepScreen> {
   @override
   Widget build(BuildContext context) {
     final rules = <(String, bool)>[
-      ('8 caracteres minimum', _pwd.text.length >= 8),
+      ('8 caractères minimum', _pwd.text.length >= 8),
       ('Une majuscule', _pwd.text.contains(RegExp(r'[A-Z]'))),
       ('Une minuscule', _pwd.text.contains(RegExp(r'[a-z]'))),
       ('Un chiffre', _pwd.text.contains(RegExp(r'[0-9]'))),
@@ -899,10 +904,10 @@ class _PasswordStepScreenState extends State<PasswordStepScreen> {
             EkHeader(
               title: widget.resetMode
                   ? 'Nouveau mot de passe'
-                  : 'Mot de passe securise',
+                  : 'Mot de passe sécurisé',
               subtitle: widget.resetMode
-                  ? 'Definissez un nouveau mot de passe'
-                  : 'Etape 3 sur 4 · Securite du compte',
+                  ? 'Définissez un nouveau mot de passe'
+                  : 'Étape 3 sur 4 · Sécurité du compte',
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -977,7 +982,7 @@ class _PasswordStepScreenState extends State<PasswordStepScreen> {
                     const SizedBox(height: 24),
                     EkButton(
                       label: widget.resetMode
-                          ? 'Reinitialiser'
+                          ? 'Réinitialiser'
                           : 'Valider et continuer',
                       icon: Icons.shield_outlined,
                       loading: _busy,
@@ -1043,7 +1048,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final st = context.read<EkState>();
     if (!await st.accountExists(phone)) {
       if (!mounted) return;
-      setState(() => _err = 'Aucun compte associe a ce numero');
+      setState(() => _err = 'Aucun compte associé à ce numéro');
       return;
     }
     setState(() {
@@ -1099,7 +1104,7 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const EkHeader(
               title: 'Connexion',
-              subtitle: 'Numero de telephone et mot de passe',
+              subtitle: 'Numéro de téléphone et mot de passe',
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -1113,7 +1118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Center(child: EkWordmark(size: 17, showSub: true)),
                     const SizedBox(height: 34),
                     EkPhoneField(
-                      label: 'Numero de telephone',
+                      label: 'Numéro de téléphone',
                       controller: _phone,
                     ),
                     const SizedBox(height: 18),
@@ -1140,7 +1145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: TextButton(
                         onPressed: _forgot,
                         child: Text(
-                          'Mot de passe oublie ?',
+                          'Mot de passe oublié ?',
                           style: Ek.body(size: 12.5, color: Ek.accent),
                         ),
                       ),
@@ -1166,7 +1171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
                     EkButton(
-                      label: 'Creer un nouveau compte',
+                      label: 'Créer un nouveau compte',
                       icon: Icons.person_add_alt,
                       outlined: true,
                       color: Ek.accentDim,
@@ -1196,7 +1201,7 @@ class _Steps extends StatelessWidget {
   const _Steps({required this.current});
 
   // Libelles courts : ils doivent tenir sur une seule ligne sous la puce.
-  static const _labels = ['Identite', 'WhatsApp', 'Securite', 'Reseaux'];
+  static const _labels = ['Identité', 'WhatsApp', 'Sécurité', 'Réseaux'];
 
   @override
   Widget build(BuildContext context) {

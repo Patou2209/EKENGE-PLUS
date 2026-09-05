@@ -129,19 +129,19 @@ class _AlertBanner extends StatelessWidget {
       AlertKind.danger => (
         'ALERTE DANGER ACTIVE',
         Ek.danger,
-        'Vos ${st.urgenceList.length} contacts d\'urgence ont ete alertes '
+        'Vos ${st.urgenceList.length} contacts d\'urgence ont été alertes '
             'par notification Push et par WhatsApp.',
       ),
       AlertKind.safeLevel1 => (
-        'NIVEAU 1 · ALERTE PREVENTIVE',
+        'NIVEAU 1 · ALERTE PRÉVENTIVE',
         Ek.warn,
-        'Aucune confirmation recue. Votre liste Tracking a ete alertee.',
+        'Aucune confirmation reçue. Votre liste Tracking a été alertée.',
       ),
       AlertKind.safeLevel2 => (
         'NIVEAU 2 · ALERTE CRITIQUE',
         Ek.danger,
-        'Incident critique. Votre liste Urgence a ete alertee et la '
-            'geolocalisation temps reel est partagee.',
+        'Incident critique. Votre liste Urgence a été alertée et la '
+            'géolocalisation temps réel est partagée.',
       ),
       AlertKind.none => ('', Ek.accent, ''),
     };
@@ -207,7 +207,7 @@ class _AlertBanner extends StatelessWidget {
     final link = 'https://ekenge-plus.web.app/suivi/${st.user!.phone}';
     final text = Uri.encodeComponent(
       'ALERTE : ${st.user!.fullName} se sent en danger. '
-      'Suivez sa position en temps reel (aucun compte requis) : $link',
+      'Suivez sa position en temps réel (aucun compte requis) : $link',
     );
     final uri = Uri.parse('https://wa.me/?text=$text');
     try {
@@ -256,7 +256,7 @@ class _SafeCheckBanner extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'VERIFICATION DE SECURITE',
+                  'VÉRIFICATION DE SÉCURITÉ',
                   style: Ek.over(size: 10.5, color: Ek.warn),
                 ),
               ),
@@ -274,9 +274,9 @@ class _SafeCheckBanner extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'L\'alarme sonore est declenchee. Confirmez votre securite avant '
-            'la fin du compte a rebours, sans quoi une alerte preventive sera '
-            'transmise a votre liste Tracking.',
+            'L\'alarme sonore est déclenchée. Confirmez votre sécurité avant '
+            'la fin du compte à rebours, sans quoi une alerte préventive sera '
+            'transmise à votre liste Tracking.',
             style: Ek.body(size: 12.5, height: 1.5),
           ),
           const SizedBox(height: 16),
@@ -294,7 +294,7 @@ class _SafeConfirmButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EkButton(
-      label: 'Je suis en securite',
+      label: 'Je suis en sécurité',
       icon: Icons.verified_user_outlined,
       color: Ek.safe,
       textColor: Colors.white,
@@ -347,7 +347,7 @@ class _SafeConfirmButton extends StatelessWidget {
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
-                      'Confirmation de securite',
+                      'Confirmation de sécurité',
                       style: Ek.title(size: 17),
                     ),
                   ),
@@ -355,9 +355,9 @@ class _SafeConfirmButton extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Cette action clot immediatement l\'alerte active et arrete le '
+                'Cette action clôt immédiatement l\'alerte active et arrêté le '
                 'processus d\'escalade. Vos contacts Tracking et Urgence seront '
-                'informes que vous etes en securite.',
+                'informés que vous êtes en sécurité.',
                 style: Ek.body(size: 13, height: 1.55),
               ),
               const SizedBox(height: 20),
@@ -372,7 +372,7 @@ class _SafeConfirmButton extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               EkButton(
-                label: 'Confirmer et arreter le Tracking',
+                label: 'Confirmer et arrêter le Tracking',
                 icon: Icons.location_off_outlined,
                 outlined: true,
                 color: Ek.textSecondary,
@@ -391,8 +391,8 @@ class _SafeConfirmButton extends StatelessWidget {
       SnackBar(
         content: Text(
           keep
-              ? 'Securite confirmee. Tracking maintenu.'
-              : 'Securite confirmee. Tracking desactive.',
+              ? 'Sécurité confirmée. Tracking maintenu.'
+              : 'Sécurité confirmée. Tracking désactivé.',
         ),
       ),
     );
@@ -468,7 +468,7 @@ class _MapSection extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     st.trackingActive
-                        ? 'Vue en temps reel'
+                        ? 'Vue en temps réel'
                         : 'Vue de la position',
                     style: Ek.body(size: 11, color: Ek.textSecondary),
                   ),
@@ -479,12 +479,12 @@ class _MapSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    st.trackingActive ? 'TEMPS REEL' : 'POSITION LOCALE',
+                    st.trackingActive ? 'TEMPS RÉEL' : 'POSITION LOCALE',
                     style: Ek.over(size: 10, color: Ek.accentDim),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Precision elevee',
+                    'Précision élevée',
                     style: Ek.body(size: 11, color: Ek.textSecondary),
                   ),
                 ],
@@ -530,7 +530,7 @@ class _DangerSection extends StatelessWidget {
             _DangerButton(active: active),
             const SizedBox(height: 14),
             Text(
-              'Alerte transmise a la liste Urgence',
+              'Alerte transmise à la liste Urgence',
               textAlign: TextAlign.center,
               style: Ek.body(size: 12, color: Ek.danger),
             ),
@@ -662,7 +662,7 @@ class _DangerButtonState extends State<_DangerButton>
           backgroundColor: Ek.warn,
           content: Text(
             'Aucun contact dans la liste Urgence. Ajoutez vos proches '
-            'dans l\'onglet Reseaux.',
+            'dans l\'onglet Réseaux.',
             style: Ek.body(size: 13, color: Colors.white),
           ),
         ),
@@ -683,7 +683,7 @@ class _DangerButtonState extends State<_DangerButton>
         duration: const Duration(seconds: 4),
         content: Text(
           'ALERTE TRANSMISE · ${st.urgenceList.length} contact(s) de la liste '
-          'Urgence notifies par Push et WhatsApp.',
+          'Urgence notifiés par Push et WhatsApp.',
           style: Ek.body(size: 13, color: Colors.white),
         ),
       ),
@@ -706,7 +706,7 @@ class _DangerButtonState extends State<_DangerButton>
           duration: const Duration(milliseconds: 1600),
           backgroundColor: Ek.surfaceHigh,
           content: Text(
-            'Maintenez le bouton jusqu\'au bout pour declencher l\'alerte.',
+            'Maintenez le bouton jusqu\'au bout pour déclencher l\'alerte.',
             style: Ek.body(size: 12.5, color: Ek.textPrimary),
           ),
         ),
@@ -930,7 +930,7 @@ class _TrackingCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _Metric(
-                    label: 'Duree',
+                    label: 'Durée',
                     value: elapsed == null ? '--' : ekFormatDuration(elapsed),
                   ),
                 ),
@@ -1018,23 +1018,23 @@ class _SafeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'VERIFICATION SAFE',
+                  'VÉRIFICATION SAFE',
                   style: Ek.over(size: 10, color: Ek.accentDim),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   !st.safeEnabled
-                      ? 'Desactivee'
+                      ? 'Désactivée'
                       : !st.trackingActive
-                      ? 'Activee des le demarrage du Tracking'
+                      ? 'Activée dès le démarrage du Tracking'
                       : cd == null
                       ? 'En attente'
-                      : 'Prochaine verification dans ${ekFormatDuration(cd)}',
+                      : 'Prochaine vérification dans ${ekFormatDuration(cd)}',
                   style: Ek.body(size: 13.5, color: Ek.textPrimary),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Frequence : ${st.safeIntervalMinutes} minutes',
+                  'Fréquence : ${st.safeIntervalMinutes} minutes',
                   style: Ek.body(size: 11.5),
                 ),
               ],
@@ -1083,7 +1083,7 @@ class _NetworkSummary extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text('${st.trackingList.length}', style: Ek.num(size: 22)),
                 const SizedBox(height: 2),
-                Text('contact(s) autorise(s)', style: Ek.body(size: 11)),
+                Text('contact(s) autorisé(s)', style: Ek.body(size: 11)),
               ],
             ),
           ),

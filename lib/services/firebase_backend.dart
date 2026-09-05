@@ -65,7 +65,7 @@ class FirebaseBackend {
         } catch (_) {}
       }
       _initialized = true;
-      if (kDebugMode) debugPrint('Firebase initialise (ekenge-plus)');
+      if (kDebugMode) debugPrint('Firebase initialisé (ekenge-plus)');
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('Firebase indisponible : $e');
@@ -105,8 +105,8 @@ class FirebaseBackend {
   }) async {
     if (!_initialized) {
       onFailed(
-        'Firebase non initialise sur cet appareil. '
-        'Verifiez votre connexion internet puis relancez l\'application.',
+        'Firebase non initialisé sur cet appareil. '
+        'Vérifiez votre connexion internet puis relancez l\'application.',
       );
       return;
     }
@@ -177,21 +177,21 @@ class FirebaseBackend {
   static String _frenchAuthError(fa.FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-phone-number':
-        return 'Numero de telephone invalide. Format attendu : +243...';
+        return 'Numéro de téléphone invalide. Format attendu : +243...';
       case 'too-many-requests':
-        return 'Trop de tentatives. Reessayez plus tard.';
+        return 'Trop de tentatives. Réessayez plus tard.';
       case 'quota-exceeded':
-        return 'Quota SMS du jour depasse. Reessayez demain.';
+        return 'Quota SMS du jour dépassé. Réessayez demain.';
       case 'app-not-authorized':
-        return 'Application non autorisee (empreinte SHA non reconnue). '
+        return 'Application non autorisée (empreinte SHA non reconnue). '
             'Code : app-not-authorized';
       case 'missing-client-identifier':
-        return 'Verification d\'application impossible '
+        return 'Vérification d\'application impossible '
             '(Play Integrity/reCAPTCHA). Code : missing-client-identifier';
       case 'network-request-failed':
-        return 'Pas de connexion internet. Verifiez votre reseau.';
+        return 'Pas de connexion internet. Vérifiez votre réseau.';
       case 'invalid-app-credential':
-        return 'Jeton de verification refuse. Code : invalid-app-credential';
+        return 'Jeton de vérification refusé. Code : invalid-app-credential';
       default:
         return 'Erreur [${e.code}] : ${e.message ?? ''}';
     }

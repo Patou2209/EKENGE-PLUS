@@ -148,7 +148,7 @@ class _ContactPickerScreenState extends State<ContactPickerScreen> {
         child: Column(
           children: [
             EkHeader(
-              title: 'Repertoire telephonique',
+              title: 'Répertoire téléphonique',
               subtitle: _permission
                   ? 'Liste ${safetyListLabel(widget.target)} · '
                         '${_all.length} contact(s)'
@@ -330,7 +330,7 @@ class _ContactPickerScreenState extends State<ContactPickerScreen> {
                             color: Ek.textSecondary,
                           ),
                           label: Text(
-                            'Saisir un numero manuellement',
+                            'Saisir un numéro manuellement',
                             style: Ek.over(size: 10, color: Ek.textSecondary),
                           ),
                         ),
@@ -359,7 +359,7 @@ class _ContactPickerScreenState extends State<ContactPickerScreen> {
                       ),
                     EkButton(
                       label:
-                          'Ajouter a la liste ${safetyListLabel(widget.target)}',
+                          'Ajouter à la liste ${safetyListLabel(widget.target)}',
                       icon: Icons.playlist_add_check,
                       color: accent,
                       textColor: widget.target == SafetyList.tracking
@@ -406,25 +406,25 @@ class _EmptyDirectory extends StatelessWidget {
 
     if (searching) {
       icon = Icons.search_off_outlined;
-      title = 'Aucun resultat';
+      title = 'Aucun résultat';
       body =
-          'Aucun contact de votre repertoire ne correspond a cette '
+          'Aucun contact de votre répertoire ne correspond à cette '
           'recherche.';
     } else if (!permission) {
       icon = Icons.no_accounts_outlined;
-      title = 'Repertoire non autorise';
+      title = 'Répertoire non autorisé';
       body = permanentlyDenied
-          ? 'Le systeme ne peut plus afficher la demande d\'autorisation. '
-                'Ouvrez les reglages de l\'application et activez la '
-                'permission Contacts pour acceder a votre repertoire reel.'
-          : 'EKENGE PLUS a besoin de l\'autorisation systeme pour ouvrir le '
-                'repertoire de votre telephone.';
+          ? 'Le système ne peut plus afficher la demande d\'autorisation. '
+                'Ouvrez les réglages de l\'application et activez la '
+                'permission Contacts pour accéder à votre répertoire réel.'
+          : 'EKENGE PLUS a besoin de l\'autorisation système pour ouvrir le '
+                'répertoire de votre téléphone.';
     } else {
       icon = Icons.contacts_outlined;
-      title = 'Repertoire vide';
+      title = 'Répertoire vide';
       body =
-          'L\'autorisation est accordee mais aucun contact avec numero de '
-          'telephone n\'a ete trouve sur cet appareil. Saisissez le numero '
+          'L\'autorisation est accordée mais aucun contact avec numéro de '
+          'téléphone n\'a été trouvé sur cet appareil. Saisissez le numéro '
           'de vos proches manuellement.';
     }
 
@@ -454,19 +454,19 @@ class _EmptyDirectory extends StatelessWidget {
           if (!permission && !searching)
             permanentlyDenied
                 ? EkButton(
-                    label: 'Ouvrir les reglages',
+                    label: 'Ouvrir les réglages',
                     icon: Icons.settings_outlined,
                     onPressed: onOpenSettings,
                   )
                 : EkButton(
-                    label: 'Autoriser l\'acces aux contacts',
+                    label: 'Autoriser l\'accès aux contacts',
                     icon: Icons.check,
                     onPressed: onRequest,
                   ),
           if (!searching) ...[
             const SizedBox(height: 10),
             EkButton(
-              label: 'Saisir un numero manuellement',
+              label: 'Saisir un numéro manuellement',
               icon: Icons.dialpad_outlined,
               outlined: true,
               textColor: Ek.textPrimary,
@@ -508,7 +508,7 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
       return;
     }
     if (digits.length < 8) {
-      setState(() => _err = 'Numero de telephone invalide.');
+      setState(() => _err = 'Numéro de téléphone invalide.');
       return;
     }
     Navigator.of(
@@ -547,7 +547,7 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
             Text('Ajouter un proche', style: Ek.title(size: 17)),
             const SizedBox(height: 8),
             Text(
-              'Le numero doit etre au format international, indicatif pays '
+              'Le numéro doit être au format international, indicatif pays '
               'inclus.',
               style: Ek.body(size: 12.5, height: 1.5),
             ),
@@ -562,7 +562,7 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
             ),
             const SizedBox(height: 14),
             EkField(
-              label: 'Numero de telephone',
+              label: 'Numéro de téléphone',
               controller: _phone,
               hint: '+243 000 000 000',
               icon: Icons.phone_outlined,

@@ -175,11 +175,11 @@ class EkState extends ChangeNotifier {
     _fb.watchInbox(phone, (kind, body, fromPhone) {
       final title = switch (kind) {
         'danger' => 'ALERTE DANGER',
-        'safe_level1' => 'Niveau 1 · Alerte preventive',
+        'safe_level1' => 'Niveau 1 · Alerte préventive',
         'safe_level2' => 'Niveau 2 · ALERTE CRITIQUE',
-        'safe_confirmed' => 'Securite confirmee',
+        'safe_confirmed' => 'Sécurité confirmée',
         'tracking_start' => 'Partage de localisation',
-        'tracking_stop' => 'Partage termine',
+        'tracking_stop' => 'Partage terminé',
         _ => 'EKENGE PLUS',
       };
       _pushToSelf(title, body, _severityFromTitle(title));
@@ -195,7 +195,9 @@ class EkState extends ChangeNotifier {
     if (t.contains('CRITIQUE') || t.contains('DANGER')) {
       return AlertKind.danger;
     }
-    if (t.contains('NIVEAU 1') || t.contains('PREVENTIVE')) {
+    if (t.contains('NIVEAU 1') ||
+        t.contains('PRÉVENTIVE') ||
+        t.contains('PREVENTIVE')) {
       return AlertKind.safeLevel1;
     }
     return AlertKind.none;
@@ -315,8 +317,8 @@ class EkState extends ChangeNotifier {
       onCodeSent: () {
         _log(
           EkEventType.otpSent,
-          'Code envoye',
-          'Code OTP envoye par WhatsApp a $phone',
+          'Code envoyé',
+          'Code OTP envoyé par WhatsApp à $phone',
         );
         onCodeSent();
       },
@@ -348,8 +350,8 @@ class EkState extends ChangeNotifier {
       onCodeSent: () {
         _log(
           EkEventType.otpSent,
-          'SMS envoye',
-          'Code OTP envoye par SMS a $phone (Firebase Auth)',
+          'SMS envoyé',
+          'Code OTP envoyé par SMS à $phone (Firebase Auth)',
         );
         onCodeSent();
       },
@@ -367,7 +369,7 @@ class EkState extends ChangeNotifier {
       if (ok) {
         _log(
           EkEventType.otpVerified,
-          'Numero verifie',
+          'Numéro vérifié',
           'Code OTP valide pour $phone (SMS Firebase)',
         );
       }
@@ -377,7 +379,7 @@ class EkState extends ChangeNotifier {
     if (ok) {
       _log(
         EkEventType.otpVerified,
-        'Numero verifie',
+        'Numéro vérifié',
         'Code OTP valide pour $phone (WhatsApp)',
       );
     }
@@ -407,7 +409,7 @@ class EkState extends ChangeNotifier {
     inbox.clear();
     _log(
       EkEventType.accountCreated,
-      'Compte cree',
+      'Compte créé',
       '${user!.fullName} · $phone',
     );
     _seedWatched();
@@ -417,7 +419,7 @@ class EkState extends ChangeNotifier {
 
   Future<String?> signIn(String phone, String password) async {
     final u = await _be.login(phone, password);
-    if (u == null) return 'Numero ou mot de passe incorrect';
+    if (u == null) return 'Numéro ou mot de passe incorrect';
     user = u;
     await _be.setSession(phone);
     await _restore();
@@ -438,7 +440,7 @@ class EkState extends ChangeNotifier {
     stopTracking(silent: true);
     _stopClock();
     AlarmSound.instance.stop();
-    _log(EkEventType.logout, 'Deconnexion', 'Session fermee');
+    _log(EkEventType.logout, 'Déconnexion', 'Session fermée');
     await _persist();
     await _be.clearSession();
     user = null;
@@ -553,13 +555,13 @@ class EkState extends ChangeNotifier {
         _log(
           EkEventType.contactLinked,
           'Contact synchronise',
-          '${c.name} possede un compte EKENGE PLUS',
+          '${c.name} possède un compte EKENGE PLUS',
         );
         // Y est notifie qu'il a ete ajoute aux contacts de securite de X.
         await _send(
           c,
           Channel.push,
-          '${user!.fullName} vous a ajoute a ses contacts de securite EKENGE PLUS.',
+          '${user!.fullName} vous a ajouté à ses contacts de sécurité EKENGE PLUS.',
           'sync_notice',
         );
         // X apparait dans la liste des personnes que Y pourra suivre.
@@ -578,14 +580,14 @@ class EkState extends ChangeNotifier {
         await _send(
           c,
           Channel.whatsapp,
-          'Bonjour ${c.name}, ${user!.fullName} vous invite a rejoindre EKENGE PLUS, '
-              'application de securite et de partage de localisation en temps reel. '
-              'Telechargez l\'application : https://ekenge-plus.web.app',
+          'Bonjour ${c.name}, ${user!.fullName} vous invite à rejoindre EKENGE PLUS, '
+              'application de sécurité et de partage de localisation en temps réel. '
+              'Téléchargez l\'application : https://ekenge-plus.web.app',
           'invitation',
         );
         _log(
           EkEventType.invitationSent,
-          'Invitation WhatsApp envoyee',
+          'Invitation WhatsApp envoyée',
           '${c.name} · ${c.phone}',
         );
       }
@@ -627,7 +629,7 @@ class EkState extends ChangeNotifier {
     listsConfigured = true;
     _log(
       EkEventType.listsConfigured,
-      'Reseaux de securite configures',
+      'Réseaux de sécurité configurés',
       'Tracking : ${trackingList.length} contact(s) · Urgence : ${urgenceList.length} contact(s)',
     );
     await _persist();
@@ -639,11 +641,11 @@ class EkState extends ChangeNotifier {
     await _send(
       c,
       Channel.whatsapp,
-      'Rappel : ${user!.fullName} vous invite a rejoindre EKENGE PLUS. '
-          'Telechargez l\'application : https://ekenge-plus.web.app',
+      'Rappel : ${user!.fullName} vous invite à rejoindre EKENGE PLUS. '
+          'Téléchargez l\'application : https://ekenge-plus.web.app',
       'invitation',
     );
-    _log(EkEventType.invitationSent, 'Invitation relancee', c.name);
+    _log(EkEventType.invitationSent, 'Invitation relancée', c.name);
     await _persist();
     notifyListeners();
   }
@@ -677,7 +679,7 @@ class EkState extends ChangeNotifier {
         await _send(
           c,
           Channel.push,
-          '${user!.fullName} partage sa localisation en temps reel. '
+          '${user!.fullName} partage sa localisation en temps réel. '
               'Consultez sa position sur la carte dans EKENGE PLUS.',
           'tracking_start',
         );
@@ -708,13 +710,13 @@ class EkState extends ChangeNotifier {
         await _send(
           c,
           Channel.push,
-          '${user!.fullName} a arrete le partage de sa localisation.',
+          '${user!.fullName} a arrêté le partage de sa localisation.',
           'tracking_stop',
         );
       }
       _log(
         EkEventType.trackingStopped,
-        'Tracking arrete',
+        'Tracking arrêté',
         'Partage de localisation interrompu',
         pos: position,
       );
@@ -779,9 +781,9 @@ class EkState extends ChangeNotifier {
         'Consultez sa position actuelle dans EKENGE PLUS.';
     final detail =
         '$msg\n'
-        'Heure du declenchement : ${_hhmm(now)}\n'
+        'Heure du déclenchement : ${_hhmm(now)}\n'
         'Position : ${LocationService.formatCoords(position!)}\n'
-        'Suivi en temps reel : https://ekenge-plus.web.app/suivi/${user!.phone}';
+        'Suivi en temps réel : https://ekenge-plus.web.app/suivi/${user!.phone}';
 
     // Notification Push a tous les membres de la liste Urgence.
     for (final c in urgenceList) {
@@ -795,14 +797,14 @@ class EkState extends ChangeNotifier {
 
     _log(
       EkEventType.dangerTriggered,
-      'Alerte Danger declenchee',
-      'Liste Urgence alertee · ${urgenceList.length} contact(s)',
+      'Alerte Danger déclenchée',
+      'Liste Urgence alertée · ${urgenceList.length} contact(s)',
       pos: position,
     );
     _pushToSelf(
       'Alerte Danger active',
-      'Vos ${urgenceList.length} contacts d\'urgence ont ete alertes. '
-          'Le suivi en temps reel est actif.',
+      'Vos ${urgenceList.length} contacts d\'urgence ont été alertes. '
+          'Le suivi en temps réel est actif.',
       AlertKind.danger,
     );
     _startClock();
@@ -818,8 +820,8 @@ class EkState extends ChangeNotifier {
     if (trackingActive && safeEnabled) _scheduleSafeCheck();
     _log(
       EkEventType.safeCheckScheduled,
-      'Frequence Safe definie',
-      'Verification toutes les $minutes minutes',
+      'Fréquence Safe définie',
+      'Vérification toutes les $minutes minutes',
     );
     await _persist();
     notifyListeners();
@@ -865,13 +867,13 @@ class EkState extends ChangeNotifier {
     AlarmSound.instance.start();
     _log(
       EkEventType.safeCheckDue,
-      'Verification de securite requise',
+      'Vérification de sécurité requise',
       'Confirmation attendue dans les 2 minutes',
       pos: position,
     );
     _pushToSelf(
-      'Verification de securite',
-      'Confirmez votre securite en appuyant sur « Je suis en securite ».',
+      'Vérification de sécurité',
+      'Confirmez votre sécurité en appuyant sur « Je suis en sécurité ».',
       AlertKind.none,
     );
     notifyListeners();
@@ -895,13 +897,13 @@ class EkState extends ChangeNotifier {
     }
 
     final msg =
-        'ALERTE PREVENTIVE : ${user!.fullName} n\'a pas confirme sa securite. '
-        'Derniere position connue disponible dans EKENGE PLUS.';
+        'ALERTE PRÉVENTIVE : ${user!.fullName} n\'a pas confirmé sa sécurité. '
+        'Dernière position connue disponible dans EKENGE PLUS.';
     final detail =
         '$msg\n'
         'Heure : ${_hhmm(level1At!)}\n'
-        'Derniere position : ${LocationService.formatCoords(activeAlert!.position)}\n'
-        'Suivi en temps reel : https://ekenge-plus.web.app/suivi/${user!.phone}';
+        'Dernière position : ${LocationService.formatCoords(activeAlert!.position)}\n'
+        'Suivi en temps réel : https://ekenge-plus.web.app/suivi/${user!.phone}';
 
     // Notification Push et message WhatsApp aux membres de la liste Tracking.
     for (final c in trackingList) {
@@ -913,13 +915,13 @@ class EkState extends ChangeNotifier {
 
     _log(
       EkEventType.escalationLevel1,
-      'Niveau 1 · Alerte preventive',
-      'Liste Tracking alertee · ${trackingList.length} contact(s)',
+      'Niveau 1 · Alerte préventive',
+      'Liste Tracking alertée · ${trackingList.length} contact(s)',
       pos: activeAlert!.position,
     );
     _pushToSelf(
-      'Niveau 1 · Alerte preventive',
-      'Aucune confirmation recue. Votre liste Tracking a ete alertee. '
+      'Niveau 1 · Alerte préventive',
+      'Aucune confirmation reçue. Votre liste Tracking a été alertée. '
           'Niveau 2 dans $level2DelayMinutes minutes sans confirmation.',
       AlertKind.safeLevel1,
     );
@@ -936,12 +938,12 @@ class EkState extends ChangeNotifier {
     );
 
     final msg =
-        'ALERTE CRITIQUE : ${user!.fullName} demeure sans confirmation de securite. '
-        'Incident considere comme critique.';
+        'ALERTE CRITIQUE : ${user!.fullName} demeure sans confirmation de sécurité. '
+        'Incident considéré comme critique.';
     final detail =
         '$msg\n'
         'Heure : ${_hhmm(now)}\n'
-        'Geolocalisation temps reel : ${LocationService.formatCoords(activeAlert!.position)}\n'
+        'Géolocalisation temps réel : ${LocationService.formatCoords(activeAlert!.position)}\n'
         'Suivi : https://ekenge-plus.web.app/suivi/${user!.phone}';
 
     for (final c in urgenceList) {
@@ -954,13 +956,13 @@ class EkState extends ChangeNotifier {
     _log(
       EkEventType.escalationLevel2,
       'Niveau 2 · Alerte critique',
-      'Liste Urgence alertee · ${urgenceList.length} contact(s)',
+      'Liste Urgence alertée · ${urgenceList.length} contact(s)',
       pos: activeAlert!.position,
     );
     _pushToSelf(
       'Niveau 2 · Alerte critique',
-      'Aucune confirmation apres $level2DelayMinutes minutes. '
-          'Votre liste Urgence a ete alertee.',
+      'Aucune confirmation après $level2DelayMinutes minutes. '
+          'Votre liste Urgence a été alertée.',
       AlertKind.safeLevel2,
     );
     await _persist();
@@ -983,7 +985,7 @@ class EkState extends ChangeNotifier {
     level1At = null;
 
     if (had) {
-      final msg = '${user!.fullName} a confirme etre en securite.';
+      final msg = '${user!.fullName} a confirmé être en sécurité.';
       // Les membres des listes Tracking et Urgence sont informes.
       final recipients = <String, SafetyContact>{};
       for (final c in [...trackingList, ...urgenceList]) {
@@ -997,19 +999,19 @@ class EkState extends ChangeNotifier {
       }
       _log(
         EkEventType.safeConfirmed,
-        'Securite confirmee',
-        'Alerte cloturee · escalade interrompue',
+        'Sécurité confirmée',
+        'Alerte clôturée · escalade interrompue',
         pos: position,
       );
       _log(
         EkEventType.alertClosed,
-        'Alerte cloturee',
-        keepTracking ? 'Tracking maintenu' : 'Tracking desactive',
+        'Alerte clôturée',
+        keepTracking ? 'Tracking maintenu' : 'Tracking désactivé',
       );
     } else {
       _log(
         EkEventType.safeConfirmed,
-        'Securite confirmee',
+        'Sécurité confirmée',
         'Confirmation volontaire',
         pos: position,
       );
@@ -1019,7 +1021,7 @@ class EkState extends ChangeNotifier {
       if (!trackingActive) {
         await startTracking(
           notify: false,
-          reason: 'Maintenu apres confirmation',
+          reason: 'Maintenu après confirmation',
         );
       } else {
         _scheduleSafeCheck();
@@ -1073,8 +1075,8 @@ class EkState extends ChangeNotifier {
     _log(
       EkEventType.notificationSent,
       channel == Channel.push
-          ? 'Notification Push envoyee'
-          : 'Message WhatsApp envoye',
+          ? 'Notification Push envoyée'
+          : 'Message WhatsApp envoyé',
       '${to.name} · ${to.phone}',
     );
   }
@@ -1274,8 +1276,8 @@ class EkState extends ChangeNotifier {
     );
     _log(
       EkEventType.dangerTriggered,
-      'Alerte recue',
-      '${w.name} a declenche une alerte Danger',
+      'Alerte reçue',
+      '${w.name} a déclenché une alerte Danger',
     );
     _startClock();
     notifyListeners();
@@ -1284,7 +1286,7 @@ class EkState extends ChangeNotifier {
   void clearWatchedAlert(int i) {
     watched[i] = watched[i].copyWith(alert: AlertKind.none);
     _pushToSelf(
-      '${watched[i].name} a confirme etre en securite.',
+      '${watched[i].name} a confirmé être en sécurité.',
       '',
       AlertKind.none,
     );

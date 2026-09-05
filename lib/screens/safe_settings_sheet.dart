@@ -86,7 +86,7 @@ class _SafeSettingsSheetState extends State<SafeSettingsSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Verification de securite',
+                          'Vérification de sécurité',
                           style: Ek.title(size: 17),
                         ),
                         const SizedBox(height: 3),
@@ -102,14 +102,14 @@ class _SafeSettingsSheetState extends State<SafeSettingsSheet> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Lorsque le Tracking est actif, l\'application declenche une '
-                'alarme sonore a chaque intervalle. Vous devez deverrouiller '
-                'votre telephone, ouvrir l\'application et appuyer sur '
-                '« Je suis en securite ».',
+                'Lorsque le Tracking est actif, l\'application déclenché une '
+                'alarme sonore à chaque intervalle. Vous devez déverrouiller '
+                'votre téléphone, ouvrir l\'application et appuyer sur '
+                '« Je suis en sécurité ».',
                 style: Ek.body(size: 12.5, height: 1.55),
               ),
               const SizedBox(height: 22),
-              const EkSectionLabel('Frequence de verification'),
+              const EkSectionLabel('Fréquence de vérification'),
               Row(
                 children: [
                   _FreqChip(
@@ -161,7 +161,7 @@ class _SafeSettingsSheetState extends State<SafeSettingsSheet> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Frequence personnalisee',
+                          'Fréquence personnalisée',
                           style: Ek.body(size: 13.5, color: Ek.textPrimary),
                         ),
                       ),
@@ -224,11 +224,11 @@ class _SafeSettingsSheetState extends State<SafeSettingsSheet> {
                     _Escalation(
                       color: Ek.warn,
                       level: 'NIVEAU 1',
-                      title: 'Alerte preventive',
+                      title: 'Alerte préventive',
                       text:
                           'Absence de confirmation : notification Push et '
-                          'message WhatsApp a la liste Tracking, partage de la '
-                          'derniere position connue, activation du suivi.',
+                          'message WhatsApp à la liste Tracking, partage de la '
+                          'dernière position connue, activation du suivi.',
                     ),
                     const Divider(height: 22),
                     _Escalation(
@@ -236,10 +236,10 @@ class _SafeSettingsSheetState extends State<SafeSettingsSheet> {
                       level: 'NIVEAU 2',
                       title: 'Alerte critique',
                       text:
-                          'Quinze minutes apres l\'alerte preventive sans '
+                          'Quinze minutes après l\'alerte préventive sans '
                           'confirmation : notification Push et message WhatsApp '
-                          'a la liste Urgence, geolocalisation temps reel '
-                          'partagee, incident considere comme critique.',
+                          'à la liste Urgence, géolocalisation temps réel '
+                          'partagée, incident considéré comme critique.',
                     ),
                   ],
                 ),
@@ -262,12 +262,12 @@ class _SafeSettingsSheetState extends State<SafeSettingsSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Mode demonstration',
+                            'Mode démonstration',
                             style: Ek.body(size: 13, color: Ek.textPrimary),
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            'Compresse les delais (1 minute = 1 seconde) afin '
+                            'Compresse les délais (1 minute = 1 seconde) afin '
                             'd\'observer les cycles Safe et l\'escalade.',
                             style: Ek.body(size: 11),
                           ),

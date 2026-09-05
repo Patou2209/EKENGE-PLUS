@@ -197,8 +197,8 @@ class WhatsAppOtp {
       // amelioree sans reinstaller l'application.
       final defaults = [
         'cher utilisateur',
-        'Verification du compte — $code est votre code de verification '
-            'de votre compte EKENGE PLUS. Ne le communiquez a personne',
+        'Vérification du compte — $code est votre code de vérification '
+            'de votre compte EKENGE PLUS. Ne le communiquez à personne',
         '10 minutes',
       ];
       final raw = (cfg['otp_params'] as List?)?.cast<String>();
@@ -231,9 +231,9 @@ class WhatsAppOtp {
       'to': to,
       'type': 'text',
       'text': {
-        'body': 'Verification du compte\n\n$code est votre code de '
-            'verification de votre compte EKENGE PLUS.\n\nCe code est '
-            'valable 10 minutes. Ne le communiquez a personne.',
+        'body': 'Vérification du compte\n\n$code est votre code de '
+            'vérification de votre compte EKENGE PLUS.\n\nCe code est '
+            'valable 10 minutes. Ne le communiquez à personne.',
       },
     });
 
@@ -260,22 +260,22 @@ class WhatsAppOtp {
         final err = jsonDecode(resBody)['error'] as Map<String, dynamic>?;
         final errCode = err?['code'];
         if (errCode == 190 || errCode == 131005) {
-          message = 'Jeton WhatsApp expire ou refuse. Contactez le support '
-              'EKENGE pour renouveler le jeton d\'acces.';
+          message = 'Jeton WhatsApp expiré ou refusé. Contactez le support '
+              'EKENGE pour renouveler le jeton d\'accès.';
         } else if (errCode == 131030) {
-          message = 'Ce numero n\'est pas encore autorise a recevoir les '
+          message = 'Ce numéro n\'est pas encore autorisé à recevoir les '
               'messages WhatsApp de test. Ajoutez-le comme destinataire '
               'dans le tableau de bord Meta.';
         } else if (errCode == 131047) {
-          message = 'Session WhatsApp expiree. Envoyez d\'abord un message '
-              'WhatsApp au numero +1 (555) 655-2459 puis reessayez.';
+          message = 'Session WhatsApp expirée. Envoyez d\'abord un message '
+              'WhatsApp au numéro +1 (555) 655-2459 puis réessayez.';
         } else if (err?['message'] != null) {
           message = 'WhatsApp : ${err!['message']}';
         }
       } catch (_) {}
       onFailed(message);
     } on SocketException {
-      onFailed('Pas de connexion internet. Verifiez votre reseau.');
+      onFailed('Pas de connexion internet. Vérifiez votre réseau.');
     } catch (e) {
       onFailed('Envoi WhatsApp impossible : $e');
     }

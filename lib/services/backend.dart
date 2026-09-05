@@ -40,7 +40,7 @@ class Backend {
 
   /// §3 Regles de robustesse du mot de passe.
   static String? validatePassword(String p) {
-    if (p.length < 8) return 'Minimum 8 caracteres';
+    if (p.length < 8) return 'Minimum 8 caractères';
     if (!p.contains(RegExp(r'[A-Z]'))) return 'Au moins une majuscule requise';
     if (!p.contains(RegExp(r'[a-z]'))) return 'Au moins une minuscule requise';
     if (!p.contains(RegExp(r'[0-9]'))) return 'Au moins un chiffre requis';

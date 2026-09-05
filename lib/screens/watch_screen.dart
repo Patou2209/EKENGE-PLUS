@@ -37,7 +37,7 @@ class WatchScreen extends StatelessWidget {
                       icon: Icons.travel_explore_outlined,
                       title: 'Aucun proche synchronise',
                       message:
-                          'Les contacts possedant un compte EKENGE PLUS '
+                          'Les contacts possédant un compte EKENGE PLUS '
                           'apparaissent ici. Vous pourrez suivre leur '
                           'localisation lorsqu\'ils activeront leur Tracking.',
                     )
@@ -96,7 +96,7 @@ class WatchScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   'Les commandes de simulation permettent de '
-                                  'verifier la reception des alertes emises par '
+                                  'vérifier la réception des alertes émises par '
                                   'vos proches.',
                                   style: Ek.body(size: 11.5),
                                 ),
@@ -229,7 +229,7 @@ class _WatchedCard extends StatelessWidget {
                     color: Ek.textSecondary,
                   ),
                   label: Text(
-                    w.trackingActive ? 'ARRETER' : 'SIMULER TRACKING',
+                    w.trackingActive ? 'ARRÊTER' : 'SIMULER TRACKING',
                     style: Ek.over(size: 9, color: Ek.textSecondary),
                   ),
                 ),
@@ -245,7 +245,7 @@ class _WatchedCard extends StatelessWidget {
                           color: Ek.safe,
                         ),
                         label: Text(
-                          'CLOTURER',
+                          'CLÔTURER',
                           style: Ek.over(size: 9, color: Ek.safe),
                         ),
                       )

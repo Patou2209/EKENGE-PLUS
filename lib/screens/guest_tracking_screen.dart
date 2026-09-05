@@ -222,8 +222,8 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   // Etape 4 : message WhatsApp exige par le §11 du cahier des charges
   // ==========================================================================
   String _whatsappBody() =>
-      'Vous avez ete choisi par $_guestName pour suivre sa localisation '
-      'en temps reel sur EKENGE PLUS.\n\n'
+      'Vous avez été choisi par $_guestName pour suivre sa localisation '
+      'en temps réel sur EKENGE PLUS.\n\n'
       'Lien de suivi : $_trackingLink';
 
   /// Ouvre reellement WhatsApp (wa.me) avec le message pre-rempli pour ce
@@ -333,7 +333,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Terminer la session ?', style: Ek.title(size: 17)),
         content: Text(
-          'Le partage sera arrete et la liste de vos suiveurs sera effacee.',
+          'Le partage sera arrêté et la liste de vos suiveurs sera effacée.',
           style: Ek.body(size: 13, color: Ek.textSecondary),
         ),
         actions: [
@@ -414,7 +414,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   Widget _buildWarning() {
     return Column(
       children: [
-        _header('Mode visiteur', 'Tracking sans creation de compte'),
+        _header('Mode visiteur', 'Tracking sans création de compte'),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -440,7 +440,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                 const SizedBox(height: 14),
                 Text(
                   'En partageant votre localisation en tant que visiteur, '
-                  'vous n\'aurez pas acces aux alertes.',
+                  'vous n\'aurez pas accès aux alertes.',
                   textAlign: TextAlign.center,
                   style: Ek.body(size: 14.5, color: Ek.textSecondary),
                 ),
@@ -463,7 +463,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                       _lockedRow(
                         Icons.verified_user_outlined,
                         'Fonction Safe',
-                        'Verification periodique de votre securite',
+                        'Vérification périodique de votre sécurité',
                       ),
                       const SizedBox(height: 10),
                       _lockedRow(
@@ -535,7 +535,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
       children: [
         _header(
           'Votre nom',
-          'Etape 1 sur 3 · Identification',
+          'Étape 1 sur 3 · Identification',
           onBack: () => setState(() => _step = _GuestStep.warning),
         ),
         Expanded(
@@ -551,8 +551,8 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Ce nom apparaitra dans le message WhatsApp envoye a vos '
-                  'contacts, accompagne du lien de suivi.',
+                  'Ce nom apparaîtra dans le message WhatsApp envoyé à vos '
+                  'contacts, accompagné du lien de suivi.',
                   style: Ek.body(size: 13, color: Ek.textSecondary),
                 ),
                 const SizedBox(height: 26),
@@ -605,7 +605,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
       children: [
         _header(
           'Choisir vos contacts',
-          'Etape 2 sur 3 · Repertoire du telephone',
+          'Étape 2 sur 3 · Répertoire du téléphone',
           onBack: () => setState(() => _step = _GuestStep.name),
         ),
         if (_loadingContacts)
@@ -640,7 +640,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                     children: [
                       EkSectionLabel(
                         '${pool.length} contact(s) · '
-                        '${_selected.length} selectionne(s)',
+                        '${_selected.length} sélectionné(s)',
                       ),
                       const Spacer(),
                       TextButton.icon(
@@ -658,7 +658,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                   child: pool.isEmpty
                       ? Center(
                           child: Text(
-                            'Aucun contact trouve',
+                            'Aucun contact trouvé',
                             style: Ek.body(color: Ek.textTertiary),
                           ),
                         )
@@ -676,7 +676,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
                   child: EkButton(
                     label: _selected.isEmpty
-                        ? 'Selectionnez au moins un contact'
+                        ? 'Sélectionnez au moins un contact'
                         : 'Continuer (${_selected.length})',
                     icon: Icons.arrow_forward,
                     onPressed: _selected.isEmpty
@@ -702,14 +702,14 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
           const Spacer(),
           const Icon(Icons.contacts_outlined, size: 52, color: Ek.textTertiary),
           const SizedBox(height: 18),
-          Text('Acces au repertoire requis', style: Ek.title(size: 17)),
+          Text('Accès au répertoire requis', style: Ek.title(size: 17)),
           const SizedBox(height: 10),
           Text(
             _permanentlyDenied
-                ? 'L\'autorisation a ete refusee definitivement. Activez '
-                      '« Contacts » dans les reglages systeme de l\'appareil.'
-                : 'EKENGE PLUS a besoin d\'ouvrir votre repertoire pour '
-                      'selectionner les contacts avec qui partager votre '
+                ? 'L\'autorisation a été refusée définitivement. Activez '
+                      '« Contacts » dans les réglages système de l\'appareil.'
+                : 'EKENGE PLUS a besoin d\'ouvrir votre répertoire pour '
+                      'sélectionner les contacts avec qui partager votre '
                       'localisation.',
             textAlign: TextAlign.center,
             style: Ek.body(size: 13, color: Ek.textSecondary),
@@ -717,8 +717,8 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
           const SizedBox(height: 22),
           EkButton(
             label: _permanentlyDenied
-                ? 'Ouvrir les reglages'
-                : 'Autoriser l\'acces au repertoire',
+                ? 'Ouvrir les réglages'
+                : 'Autoriser l\'accès au répertoire',
             icon: _permanentlyDenied ? Icons.settings : Icons.contacts,
             onPressed: _permanentlyDenied
                 ? () => ContactsService.instance.openSettings()
@@ -810,7 +810,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
       children: [
         _header(
           'Envoi WhatsApp',
-          'Etape 3 sur 3 · Lien de suivi',
+          'Étape 3 sur 3 · Lien de suivi',
           onBack: () => setState(() => _step = _GuestStep.contacts),
         ),
         Expanded(
@@ -832,7 +832,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                         const Icon(Icons.link, size: 16, color: Ek.accent),
                         const SizedBox(width: 8),
                         Text(
-                          'Message qui sera envoye',
+                          'Message qui sera envoyé',
                           style: Ek.over(size: 11),
                         ),
                       ],
@@ -908,7 +908,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
               if (!allSent) ...[
                 EkButton(
                   label: _sent.isEmpty
-                      ? 'Envoyer a tous via WhatsApp'
+                      ? 'Envoyer à tous via WhatsApp'
                       : 'Envoyer au suivant '
                             '(${_sent.length}/${chosen.length})',
                   icon: Icons.send,
@@ -917,7 +917,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                 const SizedBox(height: 10),
               ],
               EkButton(
-                label: 'Demarrer le partage en direct',
+                label: 'Démarrer le partage en direct',
                 icon: Icons.share_location,
                 outlined: !allSent,
                 color: allSent ? Ek.accent : Ek.textSecondary,
@@ -1132,7 +1132,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                       child: Text(
                         'Mode visiteur : les fonctions Danger, Safe et les '
                         'alertes automatiques ne sont pas disponibles. '
-                        'Creez un compte pour une protection complete.',
+                        'Créez un compte pour une protection complete.',
                         style: Ek.body(size: 12, color: Ek.textSecondary),
                       ),
                     ),
@@ -1141,7 +1141,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
               ),
               const SizedBox(height: 14),
               EkButton(
-                label: 'Creer un compte pour etre protege',
+                label: 'Créer un compte pour être protège',
                 icon: Icons.person_add_alt,
                 outlined: true,
                 color: Ek.accent,
@@ -1166,7 +1166,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
             children: [
               // Demarrer / arreter la transmission a volonte.
               EkButton(
-                label: _sharing ? 'Arreter le partage' : 'Demarrer le partage',
+                label: _sharing ? 'Arrêter le partage' : 'Démarrer le partage',
                 icon: _sharing
                     ? Icons.pause_circle_outline
                     : Icons.play_circle_outline,
@@ -1205,7 +1205,7 @@ class _SendChip extends StatelessWidget {
         children: [
           const Icon(Icons.check_circle, size: 16, color: Ek.safe),
           const SizedBox(width: 6),
-          Text('Envoye', style: Ek.body(size: 12, color: Ek.safe)),
+          Text('Envoyé', style: Ek.body(size: 12, color: Ek.safe)),
         ],
       );
     }
@@ -1304,7 +1304,7 @@ class _GuestManualSheetState extends State<_GuestManualSheet> {
               style: Ek.body(size: 15, color: Ek.textPrimary),
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
-                hintText: 'Numero de telephone (+243…)',
+                hintText: 'Numéro de téléphone (+243…)',
                 prefixIcon: Icon(Icons.phone_outlined, color: Ek.textTertiary),
               ),
             ),

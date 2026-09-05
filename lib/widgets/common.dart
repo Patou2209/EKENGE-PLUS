@@ -39,7 +39,7 @@ class EkWordmark extends StatelessWidget {
         ),
         if (showSub) ...[
           SizedBox(height: size * 0.42),
-          Text('SECURITE PERSONNELLE', style: Ek.over(size: size * 0.52)),
+          Text('SÉCURITÉ PERSONNELLE', style: Ek.over(size: size * 0.52)),
         ],
       ],
     );
@@ -821,7 +821,7 @@ String ekFormatDateTime(DateTime d) {
 
 String ekRelative(DateTime d) {
   final s = DateTime.now().difference(d);
-  if (s.inSeconds < 45) return 'a l\'instant';
+  if (s.inSeconds < 45) return 'à l\'instant';
   if (s.inMinutes < 60) return 'il y a ${s.inMinutes} min';
   if (s.inHours < 24) return 'il y a ${s.inHours} h';
   return ekFormatDateTime(d);

@@ -87,8 +87,8 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
         child: Column(
           children: [
             const EkHeader(
-              title: 'Reseaux de securite',
-              subtitle: 'Etape 4 sur 4 · Configuration obligatoire',
+              title: 'Réseaux de sécurité',
+              subtitle: 'Étape 4 sur 4 · Configuration obligatoire',
               back: false,
             ),
             Expanded(
@@ -112,7 +112,7 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
                         index: 1,
                         title: 'Liste Tracking',
                         description:
-                            'Les personnes autorisees a suivre votre localisation '
+                            'Les personnes autorisées à suivre votre localisation '
                             'lorsque vous activez le partage de position.',
                         count: st.trackingList.length,
                         contacts: st.trackingList,
@@ -130,7 +130,7 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
                           description:
                               'Tous les contacts Tracking y sont automatiquement '
                               'copies. Vous pouvez ajouter des contacts '
-                              'supplementaires qui recevront les alertes critiques.',
+                              'supplémentaires qui recevront les alertes critiques.',
                           count: st.urgenceList.length,
                           contacts: st.urgenceList,
                           accent: Ek.danger,
@@ -159,8 +159,8 @@ class _SetupListsScreenState extends State<SetupListsScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'Selectionnez au moins un contact Tracking pour '
-                                  'poursuivre. La liste Urgence sera creee '
+                                  'Sélectionnez au moins un contact Tracking pour '
+                                  'poursuivre. La liste Urgence sera créée '
                                   'automatiquement.',
                                   style: Ek.body(size: 12.5),
                                 ),
@@ -225,12 +225,12 @@ class _PermissionStage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 26),
-        Text('Acces au repertoire', style: Ek.title(size: 19)),
+        Text('Accès au répertoire', style: Ek.title(size: 19)),
         const SizedBox(height: 10),
         Text(
-          'EKENGE PLUS demande au systeme l\'autorisation d\'acceder aux '
-          'contacts de votre telephone. Une fois accordee, votre repertoire '
-          'reel est ouvert pour selectionner vos proches.',
+          'EKENGE PLUS demande au système l\'autorisation d\'accéder aux '
+          'contacts de votre téléphone. Une fois accordée, votre répertoire '
+          'réel est ouvert pour sélectionner vos proches.',
           style: Ek.body(size: 13.5, height: 1.55),
         ),
         const SizedBox(height: 22),
@@ -240,18 +240,18 @@ class _PermissionStage extends StatelessWidget {
             children: [
               _Bullet(
                 icon: Icons.lock_outline,
-                text: 'Vos contacts ne sont jamais transmis a des tiers.',
+                text: 'Vos contacts ne sont jamais transmis à des tiers.',
               ),
               const Divider(height: 22),
               _Bullet(
                 icon: Icons.person_search_outlined,
                 text:
-                    'Seuls les numeros que vous selectionnez sont enregistres.',
+                    'Seuls les numéros que vous sélectionnez sont enregistrés.',
               ),
               const Divider(height: 22),
               _Bullet(
                 icon: Icons.settings_outlined,
-                text: 'L\'autorisation est revocable a tout moment.',
+                text: 'L\'autorisation est révocable à tout moment.',
               ),
             ],
           ),
@@ -275,7 +275,7 @@ class _PermissionStage extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'Autorisation refusee',
+                      'Autorisation refusée',
                       style: Ek.over(size: 10, color: Ek.warn),
                     ),
                   ],
@@ -283,12 +283,12 @@ class _PermissionStage extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   permanentlyDenied
-                      ? 'Le systeme ne peut plus afficher la demande. Ouvrez '
-                            'les reglages de l\'application, activez la '
+                      ? 'Le système ne peut plus afficher la demande. Ouvrez '
+                            'les réglages de l\'application, activez la '
                             'permission Contacts, puis revenez ici.'
-                      : 'Sans cette autorisation le repertoire du telephone '
-                            'reste inaccessible. Vous pouvez reessayer ou '
-                            'saisir les numeros manuellement.',
+                      : 'Sans cette autorisation le répertoire du téléphone '
+                            'reste inaccessible. Vous pouvez réessayer ou '
+                            'saisir les numéros manuellement.',
                   style: Ek.body(size: 12.5, height: 1.5),
                 ),
               ],
@@ -299,13 +299,13 @@ class _PermissionStage extends StatelessWidget {
         const SizedBox(height: 26),
         if (permanentlyDenied)
           EkButton(
-            label: 'Ouvrir les reglages',
+            label: 'Ouvrir les réglages',
             icon: Icons.settings_outlined,
             onPressed: onOpenSettings,
           )
         else
           EkButton(
-            label: denied ? 'Reessayer l\'autorisation' : 'Autoriser l\'acces',
+            label: denied ? 'Réessayer l\'autorisation' : 'Autoriser l\'accès',
             icon: denied ? Icons.refresh : Icons.check,
             loading: busy,
             onPressed: onGrant,
@@ -317,7 +317,7 @@ class _PermissionStage extends StatelessWidget {
             child: TextButton(
               onPressed: onSkip,
               child: Text(
-                'Saisir les numeros manuellement',
+                'Saisir les numéros manuellement',
                 style: Ek.over(size: 10, color: Ek.textSecondary),
               ),
             ),
@@ -401,7 +401,7 @@ class _ListBlock extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Aucun contact selectionne',
+                'Aucun contact sélectionné',
                 style: Ek.body(size: 12, color: Ek.textTertiary),
               ),
             )
@@ -422,7 +422,7 @@ class _ListBlock extends StatelessWidget {
               color: accent,
             ),
             label: Text(
-              'Ouvrir le repertoire',
+              'Ouvrir le répertoire',
               style: Ek.over(size: 10.5, color: accent),
             ),
           ),
@@ -482,7 +482,7 @@ class _ContactRow extends StatelessWidget {
                     Text(
                       contact.sync == ContactSync.linked
                           ? 'Synchronise'
-                          : 'Invitation envoyee',
+                          : 'Invitation envoyée',
                       style: Ek.over(
                         size: 8.5,
                         color: contact.sync == ContactSync.linked

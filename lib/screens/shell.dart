@@ -24,9 +24,9 @@ class _AppShellState extends State<AppShell> {
   int _index = 0;
 
   static const _items = <(IconData, IconData, String)>[
-    (Icons.shield_outlined, Icons.shield, 'Securite'),
+    (Icons.shield_outlined, Icons.shield, 'Sécurité'),
     (Icons.travel_explore_outlined, Icons.travel_explore, 'Proches'),
-    (Icons.groups_outlined, Icons.groups, 'Reseaux'),
+    (Icons.groups_outlined, Icons.groups, 'Réseaux'),
     (Icons.receipt_long_outlined, Icons.receipt_long, 'Journal'),
     (Icons.person_outline, Icons.person, 'Profil'),
   ];

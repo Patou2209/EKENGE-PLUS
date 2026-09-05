@@ -25,15 +25,15 @@ class ProfileScreen extends StatelessWidget {
         duration: const Duration(seconds: 5),
         content: Text(
           permanent
-              ? 'Autorisation refusee definitivement. Activez la permission '
-                    'Contacts dans les reglages du systeme.'
-              : 'Autorisation refusee. Le repertoire du telephone reste '
+              ? 'Autorisation refusée définitivement. Activez la permission '
+                    'Contacts dans les réglages du système.'
+              : 'Autorisation refusée. Le répertoire du téléphone reste '
                     'inaccessible.',
           style: Ek.body(size: 12.5, color: Ek.textPrimary),
         ),
         action: permanent
             ? SnackBarAction(
-                label: 'REGLAGES',
+                label: 'RÉGLAGES',
                 textColor: Ek.accent,
                 onPressed: st.openSystemSettings,
               )
@@ -54,7 +54,7 @@ class ProfileScreen extends StatelessWidget {
           children: [
             const EkHeader(
               title: 'Profil',
-              subtitle: 'Compte et parametres de securite',
+              subtitle: 'Compte et paramètres de sécurité',
               back: false,
             ),
             Expanded(
@@ -92,7 +92,7 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Compte cree le ${u == null ? '' : ekFormatDateTime(u.createdAt)}',
+                                'Compte créé le ${u == null ? '' : ekFormatDateTime(u.createdAt)}',
                                 style: Ek.over(size: 8.5),
                               ),
                             ],
@@ -104,7 +104,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 18),
 
                   // ---- Parametres de securite ----
-                  const EkSectionLabel('Parametres de securite'),
+                  const EkSectionLabel('Paramètres de sécurité'),
                   EkCard(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -114,7 +114,7 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         EkRow(
                           icon: Icons.verified_user_outlined,
-                          label: 'Verification Safe',
+                          label: 'Vérification Safe',
                           value: '${st.safeIntervalMinutes} min',
                           onTap: () => showModalBottomSheet(
                             context: context,
@@ -154,13 +154,13 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         EkRow(
                           icon: Icons.contacts_outlined,
-                          label: 'Acces aux contacts',
+                          label: 'Accès aux contacts',
                           iconColor: st.contactsPermission
                               ? Ek.safe
                               : Ek.textSecondary,
                           trailing: st.contactsPermission
                               ? EkPill(
-                                  label: 'Accorde',
+                                  label: 'Accordé',
                                   color: Ek.safe,
                                   icon: Icons.check,
                                 )
@@ -175,13 +175,13 @@ class ProfileScreen extends StatelessWidget {
                         const Divider(height: 1),
                         EkRow(
                           icon: Icons.my_location_outlined,
-                          label: 'Localisation en arriere-plan',
+                          label: 'Localisation en arrière-plan',
                           iconColor: st.locationPermission
                               ? Ek.safe
                               : Ek.textSecondary,
                           trailing: st.locationPermission
                               ? EkPill(
-                                  label: 'Accorde',
+                                  label: 'Accordé',
                                   color: Ek.safe,
                                   icon: Icons.check,
                                 )
@@ -200,7 +200,7 @@ class ProfileScreen extends StatelessWidget {
                           label: 'Notifications Push',
                           iconColor: Ek.safe,
                           trailing: EkPill(
-                            label: 'Accorde',
+                            label: 'Accordé',
                             color: Ek.safe,
                             icon: Icons.check,
                           ),
@@ -208,53 +208,10 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
-
-                  // ---- §15 Securite des donnees ----
-                  const EkSectionLabel('Securite des donnees'),
-                  EkCard(
-                    child: Column(
-                      children: [
-                        _Secure(
-                          icon: Icons.lock_outline,
-                          text:
-                              'Authentification securisee par numero de '
-                              'telephone verifie et mot de passe hache.',
-                        ),
-                        const Divider(height: 20),
-                        _Secure(
-                          icon: Icons.https_outlined,
-                          text: 'Chiffrement des communications HTTPS.',
-                        ),
-                        const Divider(height: 20),
-                        _Secure(
-                          icon: Icons.admin_panel_settings_outlined,
-                          text:
-                              'Controle des acces : seuls vos contacts '
-                              'autorises consultent votre position.',
-                        ),
-                        const Divider(height: 20),
-                        _Secure(
-                          icon: Icons.place_outlined,
-                          text:
-                              'Protection des donnees de localisation : '
-                              'transmission uniquement lorsque le Tracking '
-                              'est actif ou lors d\'une alerte.',
-                        ),
-                        const Divider(height: 20),
-                        _Secure(
-                          icon: Icons.privacy_tip_outlined,
-                          text:
-                              'Respect de la confidentialite : aucune '
-                              'donnee transmise a des tiers.',
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 22),
 
                   EkButton(
-                    label: 'Se deconnecter',
+                    label: 'Se déconnecter',
                     icon: Icons.logout,
                     outlined: true,
                     color: Ek.dangerBright,
@@ -262,7 +219,7 @@ class ProfileScreen extends StatelessWidget {
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: Text('Deconnexion', style: Ek.title(size: 16)),
+                          title: Text('Déconnexion', style: Ek.title(size: 16)),
                           content: Text(
                             'Le Tracking actif sera interrompu. Vos contacts '
                             'ne recevront plus votre localisation.',
@@ -276,7 +233,7 @@ class ProfileScreen extends StatelessWidget {
                             TextButton(
                               onPressed: () => Navigator.of(ctx).pop(true),
                               child: Text(
-                                'Se deconnecter',
+                                'Se déconnecter',
                                 style: Ek.body(
                                   size: 13,
                                   color: Ek.dangerBright,
@@ -309,22 +266,6 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _Secure extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _Secure({required this.icon, required this.text});
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: Ek.safe),
-        const SizedBox(width: 13),
-        Expanded(child: Text(text, style: Ek.body(size: 12, height: 1.5))),
-      ],
-    );
-  }
-}
 
 

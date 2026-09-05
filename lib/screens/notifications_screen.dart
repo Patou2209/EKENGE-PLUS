@@ -71,8 +71,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 labelStyle: Ek.over(size: 10.5, color: Ek.textPrimary),
                 unselectedLabelStyle: Ek.over(size: 10.5),
                 tabs: const [
-                  Tab(height: 44, text: 'RECUES'),
-                  Tab(height: 44, text: 'EMISES'),
+                  Tab(height: 44, text: 'REÇUES'),
+                  Tab(height: 44, text: 'ÉMISES'),
                 ],
               ),
             ),
@@ -103,7 +103,7 @@ class _Received extends StatelessWidget {
         icon: Icons.notifications_none,
         title: 'Aucune notification',
         message:
-            'Les notifications Push liees a votre securite et a celle de vos '
+            'Les notifications Push liées à votre sécurité et à celle de vos '
             'proches apparaissent ici.',
       );
     }
@@ -188,10 +188,10 @@ class _Sent extends StatelessWidget {
     if (items.isEmpty) {
       return const EkEmpty(
         icon: Icons.outbox_outlined,
-        title: 'Aucun message emis',
+        title: 'Aucun message émis',
         message:
             'Le registre des notifications Push et des messages WhatsApp '
-            'transmis a vos contacts apparaitra ici.',
+            'transmis à vos contacts apparaîtra ici.',
       );
     }
 
@@ -261,7 +261,7 @@ class _Sent extends StatelessWidget {
               const SizedBox(width: 11),
               Expanded(
                 child: Text(
-                  'Messages WhatsApp emis depuis le numero officiel certifie '
+                  'Messages WhatsApp émis depuis le numéro officiel certifié '
                   'EKENGE PLUS via WhatsApp Business Platform.',
                   style: Ek.body(size: 11),
                 ),
@@ -300,12 +300,12 @@ class _SentCard extends StatelessWidget {
     };
     final kindLabel = switch (message.kind) {
       'danger' => 'ALERTE DANGER',
-      'safe_level1' => 'NIVEAU 1 · PREVENTIVE',
+      'safe_level1' => 'NIVEAU 1 · PRÉVENTIVE',
       'safe_level2' => 'NIVEAU 2 · CRITIQUE',
-      'safe_confirmed' => 'CONFIRMATION SECURITE',
+      'safe_confirmed' => 'CONFIRMATION SÉCURITÉ',
       'invitation' => 'INVITATION',
       'tracking_start' => 'TRACKING ACTIVE',
-      'tracking_stop' => 'TRACKING ARRETE',
+      'tracking_stop' => 'TRACKING ARRÊTÉ',
       'sync_notice' => 'SYNCHRONISATION',
       _ => 'NOTIFICATION',
     };
@@ -389,7 +389,7 @@ class _SentCard extends StatelessWidget {
           if (wa) ...[
             const SizedBox(height: 8),
             Text(
-              'Emis depuis ${Backend.officialWhatsAppNumber}',
+              'Émis depuis ${Backend.officialWhatsAppNumber}',
               style: Ek.over(size: 8),
             ),
           ],

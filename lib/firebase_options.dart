@@ -14,7 +14,7 @@ class DefaultFirebaseOptions {
         return android;
       default:
         throw UnsupportedError(
-          'DefaultFirebaseOptions non configure pour cette plateforme.',
+          'DefaultFirebaseOptions non configuré pour cette plateforme.',
         );
     }
   }

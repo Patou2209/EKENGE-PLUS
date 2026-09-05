@@ -37,7 +37,7 @@ class _NetworksScreenState extends State<NetworksScreen>
         child: Column(
           children: [
             EkHeader(
-              title: 'Reseaux de securite',
+              title: 'Réseaux de sécurité',
               subtitle: 'Listes Tracking et Urgence',
               back: false,
               actions: [
@@ -110,15 +110,15 @@ class _NetworksScreenState extends State<NetworksScreen>
                     accent: Ek.accent,
                     note:
                         'Ces contacts peuvent consulter votre localisation en '
-                        'temps reel lorsque vous activez le Tracking.',
+                        'temps réel lorsque vous activez le Tracking.',
                   ),
                   _ListView(
                     list: SafetyList.urgence,
                     contacts: st.urgenceList,
                     accent: Ek.danger,
                     note:
-                        'Ces contacts recoivent les alertes critiques et les '
-                        'messages de detresse. Tous les contacts Tracking y '
+                        'Ces contacts reçoivent les alertes critiques et les '
+                        'messages de détresse. Tous les contacts Tracking y '
                         'figurent automatiquement.',
                   ),
                 ],
@@ -158,7 +158,7 @@ class _ListView extends StatelessWidget {
         title: 'Liste ${safetyListLabel(list)} vide',
         message: note,
         action: EkButton(
-          label: 'Ouvrir le repertoire',
+          label: 'Ouvrir le répertoire',
           icon: Icons.contacts_outlined,
           color: accent,
           textColor: list == SafetyList.tracking
@@ -202,7 +202,7 @@ class _ListView extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Invitation WhatsApp renvoyee a ${c.name}.',
+                            'Invitation WhatsApp renvoyée à ${c.name}.',
                           ),
                         ),
                       );
@@ -236,7 +236,7 @@ class _ListView extends StatelessWidget {
           list == SafetyList.tracking
               ? 'Ce contact ne pourra plus suivre votre localisation. Il restera '
                     'dans votre liste Urgence.'
-              : 'Ce contact ne recevra plus vos alertes de detresse et sera '
+              : 'Ce contact ne recevra plus vos alertes de détresse et sera '
                     'retire des deux listes.',
           style: Ek.body(size: 13),
         ),
@@ -327,7 +327,7 @@ class _ContactCard extends StatelessWidget {
                       child: Text(
                         linked
                             ? 'Compte EKENGE PLUS synchronise'
-                            : 'Invitation WhatsApp envoyee · en attente',
+                            : 'Invitation WhatsApp envoyée · en attente',
                         style: Ek.body(
                           size: 11,
                           color: linked ? Ek.safe : Ek.warn,
@@ -382,8 +382,8 @@ class WhatsAppNotice extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Les messages WhatsApp sont emis depuis le numero officiel '
-              'certifie EKENGE PLUS (${Backend.officialWhatsAppNumber}).',
+              'Les messages WhatsApp sont émis depuis le numéro officiel '
+              'certifié EKENGE PLUS (${Backend.officialWhatsAppNumber}).',
               style: Ek.body(size: 11.5),
             ),
           ),
