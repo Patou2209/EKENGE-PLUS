@@ -326,7 +326,7 @@ class _ContactCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         linked
-                            ? 'Compte EKENGE PLUS synchronise'
+                            ? 'Compte EKENGE PLUS synchronisé'
                             : 'Invitation WhatsApp envoyée · en attente',
                         style: Ek.body(
                           size: 11,

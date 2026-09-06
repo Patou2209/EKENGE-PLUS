@@ -36,7 +36,7 @@ class WatchScreen extends StatelessWidget {
               child: st.watched.isEmpty
                   ? const EkEmpty(
                       icon: Icons.travel_explore_outlined,
-                      title: 'Aucun proche synchronise',
+                      title: 'Aucun proche synchronisé',
                       message:
                           'Les contacts possédant un compte EKENGE PLUS '
                           'apparaissent ici. Vous pourrez suivre leur '

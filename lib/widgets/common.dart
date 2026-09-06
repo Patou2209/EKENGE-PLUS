@@ -820,6 +820,26 @@ String ekFormatDateTime(DateTime d) {
   return '${d.day} ${months[d.month - 1]} · ${ekFormatTime(d)}';
 }
 
+/// Date complète en toutes lettres (aucune abréviation) :
+/// « 15 février 2026 à 14:30 ».
+String ekFormatFullDate(DateTime d) {
+  const months = [
+    'janvier',
+    'février',
+    'mars',
+    'avril',
+    'mai',
+    'juin',
+    'juillet',
+    'août',
+    'septembre',
+    'octobre',
+    'novembre',
+    'décembre',
+  ];
+  return '${d.day} ${months[d.month - 1]} ${d.year} à ${ekFormatTime(d)}';
+}
+
 String ekRelative(DateTime d) {
   final s = DateTime.now().difference(d);
   if (s.inSeconds < 45) return 'à l\'instant';

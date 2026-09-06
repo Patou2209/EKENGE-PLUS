@@ -92,7 +92,7 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Compte créé le ${u == null ? '' : ekFormatDateTime(u.createdAt)}',
+                                'Utilisateur créé le ${u == null ? '' : ekFormatFullDate(u.createdAt)}',
                                 style: Ek.over(size: 8.5),
                               ),
                             ],

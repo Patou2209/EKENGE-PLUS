@@ -30,7 +30,7 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 
     <application
-        android:label="EKENGE PLUS"
+        android:label="Ekenge Plus"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

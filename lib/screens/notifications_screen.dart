@@ -23,9 +23,19 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 2, vsync: this);
+  EkState? _st;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _st = context.read<EkState>();
+  }
 
   @override
   void dispose() {
+    // Un simple VU suffit : les notifications restent en gras tant que la
+    // page est ouverte, puis sont marquées lues à la sortie (aucun clic).
+    _st?.markAllRead();
     _tabs.dispose();
     super.dispose();
   }
@@ -121,18 +131,17 @@ class _Received extends StatelessWidget {
           color: n.severity == AlertKind.none
               ? null
               : color.withValues(alpha: 0.05),
-          // Toucher : marque comme lue, puis ouvre la carte de suivi en
-          // direct si la notification provient d'un proche.
-          onTap: () {
-            context.read<EkState>().markRead(n.id);
-            if (n.fromPhone.isNotEmpty) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => FollowScreen(phone: n.fromPhone),
-                ),
-              );
-            }
-          },
+          // Toucher une notification liee a un proche ouvre sa carte de
+          // suivi en direct (le simple passage sur la page marque tout lu).
+          onTap: n.fromPhone.isEmpty
+              ? null
+              : () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FollowScreen(phone: n.fromPhone),
+                    ),
+                  );
+                },
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

@@ -260,6 +260,39 @@ class FirebaseBackend {
     }
   }
 
+  /// Liens ENTRANTS : les personnes qui M'ONT ajouté à leurs contacts de
+  /// sécurité (réciprocité §5 — j'apparais dans leur liste, elles doivent
+  /// apparaître dans ma page Proches pour que je puisse les suivre).
+  Future<List<Map<String, dynamic>>> fetchInboundLinks(String phone) async {
+    if (!_initialized) return const [];
+    try {
+      final snap = await _db
+          .collection('contacts')
+          .where('phone', isEqualTo: phone)
+          .get();
+      final out = <Map<String, dynamic>>[];
+      for (final doc in snap.docs) {
+        final d = doc.data();
+        final owner = (d['owner_phone'] as String?) ?? '';
+        if (owner.isEmpty || owner == phone) continue;
+        // Nom réel du propriétaire depuis son compte.
+        String name = owner;
+        final u = await fetchUser(owner);
+        if (u != null) {
+          final fn = (u['first_name'] as String?) ?? '';
+          final ln = (u['last_name'] as String?) ?? '';
+          final full = '$fn $ln'.trim();
+          if (full.isNotEmpty) name = full;
+        }
+        out.add({'phone': owner, 'name': name});
+      }
+      return out;
+    } catch (e) {
+      if (kDebugMode) debugPrint('fetchInboundLinks: $e');
+      return const [];
+    }
+  }
+
   Future<void> deleteContact(String ownerPhone, String contactPhone) async {
     if (!_initialized) return;
     try {

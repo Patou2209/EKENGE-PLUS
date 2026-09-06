@@ -194,6 +194,11 @@ class EkState extends ChangeNotifier {
         _severityFromTitle(title),
         fromPhone: fromPhone,
       );
+      // Reciprocite §5 : quelqu'un vient de M'AJOUTER a ses contacts de
+      // securite -> il apparait immediatement dans ma page Proches.
+      if (kind == 'sync_notice' && fromPhone.isNotEmpty) {
+        unawaited(_mergeInboundLinks());
+      }
       // Statut REEL du proche : son Tracking / son alerte mettent à jour
       // la liste « Proches » immédiatement.
       final wi = watched.indexWhere((w) => w.phone == fromPhone);
@@ -639,7 +644,7 @@ class EkState extends ChangeNotifier {
       if (linked) {
         _log(
           EkEventType.contactLinked,
-          'Contact synchronise',
+          'Contact synchronisé',
           '${c.name} possède un compte EKENGE PLUS',
         );
         // Y est notifie qu'il a ete ajoute aux contacts de securite de X.
@@ -649,17 +654,10 @@ class EkState extends ChangeNotifier {
           '${user!.fullName} vous a ajouté à ses contacts de sécurité EKENGE PLUS.',
           'sync_notice',
         );
-        // X apparait dans la liste des personnes que Y pourra suivre.
-        watched.add(
-          WatchedUser(
-            name: c.name,
-            phone: c.phone,
-            trackingActive: false,
-            alert: AlertKind.none,
-            position: LocationService.instance.nearby(),
-            lastUpdate: DateTime.now(),
-          ),
-        );
+        // Le contact apparait dans MA page Proches (sans doublon) avec
+        // abonnement temps reel a sa position.
+        _addWatched(c.name, c.phone);
+        _startClock();
       } else {
         // Invitation WhatsApp contenant le lien de telechargement.
         await _send(
@@ -1364,24 +1362,53 @@ class EkState extends ChangeNotifier {
     _stopPeerSubs();
     watched.clear();
     for (final c in contacts.where((e) => e.sync == ContactSync.linked)) {
-      watched.add(
-        WatchedUser(
-          name: c.name,
-          phone: c.phone,
-          trackingActive: false,
-          alert: AlertKind.none,
-          position: LocationService.instance.nearby(),
-          lastUpdate: DateTime.now(),
-        ),
-      );
-      // Suivi REEL : la derniere position publiee par ce proche sur
-      // Firestore met a jour son statut (en ligne / hors ligne) et sa
-      // position en temps reel.
-      _watchPeerPosition(c.phone);
+      _addWatched(c.name, c.phone);
     }
+    // Reciprocite §5 : les personnes qui M'ONT ajouté à leurs contacts
+    // apparaissent aussi dans ma page Proches (pour pouvoir les suivre
+    // quand elles partagent leur position ou m'alertent).
+    unawaited(_mergeInboundLinks());
     // Horloge necessaire pour basculer un proche hors ligne quand sa
     // position devient trop ancienne.
     if (watched.isNotEmpty) _startClock();
+  }
+
+  /// Ajoute un proche a la liste (sans doublon) et s'abonne a sa position.
+  void _addWatched(String name, String phone) {
+    if (phone.isEmpty) return;
+    if (watched.any((w) => w.phone == phone)) return;
+    watched.add(
+      WatchedUser(
+        name: name,
+        phone: phone,
+        trackingActive: false,
+        alert: AlertKind.none,
+        position: LocationService.instance.nearby(),
+        lastUpdate: DateTime.now(),
+      ),
+    );
+    // Suivi REEL : la derniere position publiee par ce proche sur
+    // Firestore met a jour son statut (en ligne / hors ligne) et sa
+    // position en temps reel.
+    _watchPeerPosition(phone);
+  }
+
+  /// Recupere depuis Firestore les personnes qui m'ont ajoute et les
+  /// fusionne dans la liste Proches.
+  Future<void> _mergeInboundLinks() async {
+    if (user == null) return;
+    final links = await _fb.fetchInboundLinks(user!.phone);
+    var added = false;
+    for (final l in links) {
+      final phone = (l['phone'] as String?) ?? '';
+      if (phone.isEmpty || watched.any((w) => w.phone == phone)) continue;
+      _addWatched((l['name'] as String?) ?? phone, phone);
+      added = true;
+    }
+    if (added) {
+      if (watched.isNotEmpty) _startClock();
+      notifyListeners();
+    }
   }
 
   /// §5 ALERTE REELLE vers un proche : lui signale que VOUS êtes en danger

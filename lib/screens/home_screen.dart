@@ -546,16 +546,24 @@ class _DangerSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                'APPUYEZ',
-                textAlign: TextAlign.right,
-                style: Ek.over(size: 9.5, color: Ek.textSecondary),
+              // FittedBox : le texte se reduit au besoin, jamais de retour
+              // a la ligne (pas de mot casse).
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'APPUYEZ',
+                  maxLines: 1,
+                  style: Ek.over(size: 9.5, color: Ek.textSecondary),
+                ),
               ),
               const SizedBox(height: 2),
-              Text(
-                'LONGUEMENT',
-                textAlign: TextAlign.right,
-                style: Ek.over(size: 9.5, color: Ek.textSecondary),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'LONGUEMENT',
+                  maxLines: 1,
+                  style: Ek.over(size: 9.5, color: Ek.textSecondary),
+                ),
               ),
               const SizedBox(height: 6),
               const Icon(
@@ -573,14 +581,22 @@ class _DangerSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'POUR SIGNALER',
-                style: Ek.over(size: 9.5, color: Ek.textSecondary),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'POUR SIGNALER',
+                  maxLines: 1,
+                  style: Ek.over(size: 9.5, color: Ek.textSecondary),
+                ),
               ),
               const SizedBox(height: 2),
-              Text(
-                'UNE SITUATION CRITIQUE',
-                style: Ek.over(size: 9.5, color: Ek.danger),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'UNE SITUATION CRITIQUE',
+                  maxLines: 1,
+                  style: Ek.over(size: 9.5, color: Ek.danger),
+                ),
               ),
               const SizedBox(height: 6),
               const Icon(Icons.arrow_back, size: 13, color: Ek.danger),
@@ -736,15 +752,15 @@ class _DangerButtonState extends State<_DangerButton>
           return Transform.scale(
             scale: scale,
             child: SizedBox(
-              width: 196,
-              height: 196,
+              width: 168,
+              height: 168,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   // Anneau exterieur
                   Container(
-                    width: 196,
-                    height: 196,
+                    width: 168,
+                    height: 168,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -755,8 +771,8 @@ class _DangerButtonState extends State<_DangerButton>
                     ),
                   ),
                   Container(
-                    width: 168,
-                    height: 168,
+                    width: 144,
+                    height: 144,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -769,14 +785,14 @@ class _DangerButtonState extends State<_DangerButton>
                   // Progression du maintien
                   EkRing(
                     progress: p,
-                    size: 152,
+                    size: 130,
                     color: Colors.white,
                     stroke: 2.2,
                   ),
                   // Noyau
                   Container(
-                    width: 138,
-                    height: 138,
+                    width: 118,
+                    height: 118,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
@@ -821,8 +837,8 @@ class _DangerButtonState extends State<_DangerButton>
                   if (f > 0.01)
                     IgnorePointer(
                       child: Container(
-                        width: 196,
-                        height: 196,
+                        width: 168,
+                        height: 168,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withValues(alpha: f * 0.30),
