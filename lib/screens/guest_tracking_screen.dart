@@ -285,10 +285,18 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
     await _sub?.cancel();
     _sub = loc.stream.listen((p) {
       if (!mounted) return;
+      // Aucune trace marquée pendant les 30 premières secondes du partage
+      // (stabilisation du GPS — évite les faux trajets initiaux).
+      final warmedUp =
+          _startedAt != null &&
+          DateTime.now().difference(_startedAt!) >=
+              const Duration(seconds: 30);
       setState(() {
         _position = p;
-        _trail.add(p);
-        if (_trail.length > 240) _trail.removeAt(0);
+        if (warmedUp) {
+          _trail.add(p);
+          if (_trail.length > 240) _trail.removeAt(0);
+        }
       });
       // Position temps reel publiee pour le lien de suivi.
       FirebaseBackend.instance.pushGuestPosition(_trackingToken, p);

@@ -25,14 +25,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   late final TabController _tabs = TabController(length: 2, vsync: this);
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<EkState>().markAllRead();
-    });
-  }
-
-  @override
   void dispose() {
     _tabs.dispose();
     super.dispose();
@@ -119,25 +111,28 @@ class _Received extends StatelessWidget {
           AlertKind.safeLevel1 => Ek.warn,
           AlertKind.none => Ek.accent,
         };
+        // Non lue = police en GRAS ; l'ouverture repasse en police normale.
+        final unread = !n.read;
         return EkCard(
           padding: const EdgeInsets.all(15),
           border: n.severity == AlertKind.none
-              ? null
+              ? (unread ? Ek.ink.withValues(alpha: 0.25) : null)
               : color.withValues(alpha: 0.32),
           color: n.severity == AlertKind.none
               ? null
               : color.withValues(alpha: 0.05),
-          // Toucher une notification liee a un proche ouvre sa carte de
-          // suivi en direct (position exacte).
-          onTap: n.fromPhone.isEmpty
-              ? null
-              : () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => FollowScreen(phone: n.fromPhone),
-                    ),
-                  );
-                },
+          // Toucher : marque comme lue, puis ouvre la carte de suivi en
+          // direct si la notification provient d'un proche.
+          onTap: () {
+            context.read<EkState>().markRead(n.id);
+            if (n.fromPhone.isNotEmpty) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FollowScreen(phone: n.fromPhone),
+                ),
+              );
+            }
+          },
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -170,15 +165,54 @@ class _Received extends StatelessWidget {
                         Expanded(
                           child: Text(
                             n.title,
-                            style: Ek.body(size: 13.5, color: Ek.textPrimary),
+                            style: Ek.body(
+                              size: 13.5,
+                              color: Ek.textPrimary,
+                              weight: unread
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
                           ),
                         ),
+                        if (unread) ...[
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Ek.accent,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         Text(ekRelative(n.at), style: Ek.over(size: 8.5)),
+                        const SizedBox(width: 2),
+                        // Suppression de la notification.
+                        GestureDetector(
+                          onTap: () =>
+                              context.read<EkState>().deleteInbox(n.id),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.delete_outline,
+                              size: 16,
+                              color: Ek.textTertiary,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     if (n.body.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text(n.body, style: Ek.body(size: 12, height: 1.5)),
+                      Text(
+                        n.body,
+                        style: Ek.body(
+                          size: 12,
+                          height: 1.5,
+                          weight: unread ? FontWeight.w600 : FontWeight.w400,
+                          color: unread ? Ek.textPrimary : Ek.textSecondary,
+                        ),
+                      ),
                     ],
                     if (n.fromPhone.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -377,6 +411,20 @@ class _SentCard extends StatelessWidget {
                 child: Text(kindLabel, style: Ek.over(size: 8.5, color: color)),
               ),
               Text(ekFormatTime(message.at), style: Ek.over(size: 8.5)),
+              const SizedBox(width: 2),
+              // Suppression du message emis.
+              GestureDetector(
+                onTap: () =>
+                    context.read<EkState>().deleteOutbox(message.id),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: Ek.textTertiary,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),

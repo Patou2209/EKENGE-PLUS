@@ -918,9 +918,11 @@ class _TrackingCard extends StatelessWidget {
                     }
                     // Verification stricte : GPS active + permission,
                     // sinon guide l'utilisateur (aucune position simulee).
+                    // verified: true => pas de 2e acquisition GPS dans
+                    // startTracking (supprime le retard du bouton).
                     final ok = await ekEnsureLocationReady(context);
                     if (!ok || !context.mounted) return;
-                    await st.startTracking();
+                    await st.startTracking(verified: true);
                   } else {
                     await st.stopTracking();
                   }

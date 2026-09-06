@@ -738,12 +738,19 @@ class EkState extends ChangeNotifier {
   // =======================================================================
   // §6 Fonction Tracking
   // =======================================================================
-  Future<void> startTracking({bool notify = true, String? reason}) async {
+  Future<void> startTracking({
+    bool notify = true,
+    String? reason,
+    bool verified = false,
+  }) async {
     // La localisation réelle est OBLIGATOIRE avant tout partage : GPS de
-    // l'appareil activé + permission accordée, vérifiés à CHAQUE démarrage
-    // (jamais de position simulée sur téléphone).
-    final ready = await ensureLocationReady();
-    if (ready != LocationReadiness.ready) return;
+    // l'appareil activé + permission accordée. Si l'appelant vient DEJA de
+    // vérifier (verified = true), on ne refait pas l'acquisition GPS —
+    // c'est ce double travail qui retardait le bouton de partage.
+    if (!verified) {
+      final ready = await ensureLocationReady();
+      if (ready != LocationReadiness.ready) return;
+    }
     if (trackingActive) return;
 
     trackingActive = true;
@@ -751,7 +758,6 @@ class EkState extends ChangeNotifier {
     trail.clear();
     LocationService.instance.start();
     position = LocationService.instance.current;
-    trail.add(position!);
 
     _scheduleSafeCheck();
     _startClock();
@@ -812,8 +818,17 @@ class EkState extends ChangeNotifier {
 
   void _onPosition(GeoPoint p) {
     position = p;
-    trail.add(p);
-    if (trail.length > 240) trail.removeAt(0);
+    // Point important : AUCUNE trace n'est marquée sur la carte pendant les
+    // 30 premières secondes du partage (stabilisation du GPS — les tout
+    // premiers points sont imprécis et dessinaient de faux trajets).
+    final warmedUp =
+        trackingStartedAt == null ||
+        DateTime.now().difference(trackingStartedAt!) >=
+            const Duration(seconds: 30);
+    if (warmedUp) {
+      trail.add(p);
+      if (trail.length > 240) trail.removeAt(0);
+    }
     // §6 : position temps reel publiee sur Firestore pour les proches.
     if (trackingActive && user != null) {
       _fb.pushPosition(user!.phone, p);
@@ -831,7 +846,11 @@ class EkState extends ChangeNotifier {
 
     // Le suivi en temps reel est automatiquement active.
     if (!trackingActive) {
-      await startTracking(notify: false, reason: 'Active par l\'alerte Danger');
+      await startTracking(
+        notify: false,
+        reason: 'Active par l\'alerte Danger',
+        verified: true,
+      );
     }
     position ??= LocationService.instance.current;
 
@@ -1183,6 +1202,29 @@ class EkState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Marque UNE notification comme lue (police normale après ouverture).
+  Future<void> markRead(String id) async {
+    final i = inbox.indexWhere((n) => n.id == id);
+    if (i < 0 || inbox[i].read) return;
+    inbox[i].read = true;
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Supprime une notification reçue.
+  Future<void> deleteInbox(String id) async {
+    inbox.removeWhere((n) => n.id == id);
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Supprime un message émis du registre.
+  Future<void> deleteOutbox(String id) async {
+    outbox.removeWhere((m) => m.id == id);
+    await _persist();
+    notifyListeners();
+  }
+
   // =======================================================================
   // §12 Journalisation des evenements de securite
   // =======================================================================
@@ -1358,10 +1400,14 @@ class EkState extends ChangeNotifier {
         addedAt: DateTime.now(),
       ),
     );
-    // Votre position doit etre partagee pour qu'il puisse vous suivre.
-    await ensureLocationReady();
+    // La verification GPS/permission est faite par l'ecran AVANT l'appel
+    // (ekEnsureLocationReady) : pas de 2e acquisition ici (reactivite).
     if (!trackingActive) {
-      await startTracking(notify: false, reason: 'Alerte envoyée à ${w.name}');
+      await startTracking(
+        notify: false,
+        reason: 'Alerte envoyée à ${w.name}',
+        verified: true,
+      );
     }
     await _send(
       c,
