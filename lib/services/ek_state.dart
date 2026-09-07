@@ -567,8 +567,36 @@ class EkState extends ChangeNotifier {
   }
 
   Future<String?> signIn(String phone, String password) async {
-    final u = await _be.login(phone, password);
-    if (u == null) return 'Numéro ou mot de passe incorrect';
+    var u = await _be.login(phone, password);
+    // CONNEXION SUR UN NOUVEAU TÉLÉPHONE : le compte n'existe pas dans le
+    // stockage local de CET appareil, mais il existe dans le cloud
+    // (Firestore conserve hash + sel du mot de passe depuis l'inscription).
+    // On vérifie le mot de passe contre le cloud puis on restaure le
+    // compte localement.
+    if (u == null) {
+      final cloud = await _fb.fetchUser(phone);
+      final hash = (cloud?['password_hash'] as String?) ?? '';
+      final salt = (cloud?['salt'] as String?) ?? '';
+      if (cloud == null || hash.isEmpty || salt.isEmpty) {
+        return 'Numéro ou mot de passe incorrect';
+      }
+      if (_be.hashPassword(password, salt) != hash) {
+        return 'Numéro ou mot de passe incorrect';
+      }
+      u = EkUser(
+        phone: phone,
+        firstName: (cloud['first_name'] as String?) ?? '',
+        lastName: (cloud['last_name'] as String?) ?? '',
+        passwordHash: hash,
+        salt: salt,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          (cloud['created_at'] as num?)?.toInt() ??
+              DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+      // Compte restauré sur cet appareil pour les prochaines connexions.
+      await _be.storeUser(u);
+    }
     user = u;
     await _be.setSession(phone);
     await _restore();
@@ -626,10 +654,43 @@ class EkState extends ChangeNotifier {
     }
   }
 
-  Future<bool> accountExists(String phone) => _be.accountExists(phone);
+  /// true si le compte existe — en LOCAL ou dans le CLOUD (le même compte
+  /// peut avoir été créé depuis un autre téléphone).
+  Future<bool> accountExists(String phone) async {
+    if (await _be.accountExists(phone)) return true;
+    final cloud = await _fb.fetchUser(phone);
+    return ((cloud?['password_hash'] as String?) ?? '').isNotEmpty;
+  }
 
-  Future<void> resetPassword(String phone, String password) =>
-      _be.updatePassword(phone, password);
+  /// Réinitialisation du mot de passe : mise à jour en LOCAL et dans le
+  /// CLOUD (sinon la connexion depuis un autre téléphone échouerait avec
+  /// l'ancien mot de passe restauré depuis Firestore).
+  Future<void> resetPassword(String phone, String password) async {
+    // Si le compte n'existe pas localement (autre téléphone), restaurer
+    // d'abord depuis le cloud pour pouvoir le mettre à jour.
+    if (!await _be.accountExists(phone)) {
+      final cloud = await _fb.fetchUser(phone);
+      if (cloud != null) {
+        await _be.storeUser(
+          EkUser(
+            phone: phone,
+            firstName: (cloud['first_name'] as String?) ?? '',
+            lastName: (cloud['last_name'] as String?) ?? '',
+            passwordHash: (cloud['password_hash'] as String?) ?? '',
+            salt: (cloud['salt'] as String?) ?? '',
+            createdAt: DateTime.fromMillisecondsSinceEpoch(
+              (cloud['created_at'] as num?)?.toInt() ??
+                  DateTime.now().millisecondsSinceEpoch,
+            ),
+          ),
+        );
+      }
+    }
+    await _be.updatePassword(phone, password);
+    // Synchronisation cloud du nouveau hash.
+    final updated = await _be.loadUser(phone);
+    if (updated != null) await _fb.saveUser(updated);
+  }
 
   Future<void> signOut() async {
     stopTracking(silent: true);

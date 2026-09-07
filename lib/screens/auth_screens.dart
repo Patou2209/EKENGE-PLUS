@@ -47,7 +47,7 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 // Slogan principal
                 Text(
-                  'EN SÉCURITÉ,',
+                  'EN SÉCURITÉ.',
                   textAlign: TextAlign.center,
                   style: Ek.title(size: 30),
                 ),

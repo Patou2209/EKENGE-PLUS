@@ -87,6 +87,10 @@ class FirebaseBackend {
   String? _verificationId;
   int? _resendToken;
 
+  /// true après un basculement automatique vers le flux reCAPTCHA (un seul
+  /// re-essai par session pour éviter les boucles).
+  bool _recaptchaRetried = false;
+
   /// true si Android a valide automatiquement le SMS (connexion deja faite).
   bool autoVerified = false;
 
@@ -132,9 +136,34 @@ class FirebaseBackend {
             onFailed(_frenchAuthError(e));
           }
         },
-        verificationFailed: (fa.FirebaseAuthException e) {
+        verificationFailed: (fa.FirebaseAuthException e) async {
           if (kDebugMode) {
             debugPrint('[PhoneAuth] verificationFailed: ${e.code}');
+          }
+          // SECOURS AUTOMATIQUE : l'attestation App Check / Play Integrity
+          // a échoué sur CE téléphone (APK hors Play Store, appareil sans
+          // Play Services à jour...). On relance UNE fois la vérification
+          // en forçant le flux reCAPTCHA (page web de vérification) qui
+          // fonctionne sur n'importe quel appareil.
+          if ((e.code == 'missing-client-identifier' ||
+                  e.code == 'invalid-app-credential' ||
+                  e.code == 'app-not-authorized') &&
+              !_recaptchaRetried) {
+            _recaptchaRetried = true;
+            if (kDebugMode) {
+              debugPrint('[PhoneAuth] retry avec flux reCAPTCHA');
+            }
+            try {
+              await _auth.setSettings(forceRecaptchaFlow: true);
+              await startPhoneVerification(
+                phone: phone,
+                onCodeSent: onCodeSent,
+                onAutoVerified: onAutoVerified,
+                onFailed: onFailed,
+                isResend: false,
+              );
+              return;
+            } catch (_) {}
           }
           onFailed(_frenchAuthError(e));
         },

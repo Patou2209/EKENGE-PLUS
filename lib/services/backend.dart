@@ -102,6 +102,13 @@ class Backend {
     return user;
   }
 
+  /// Enregistre (ou remplace) un compte en local — utilisé pour la
+  /// restauration cloud : connexion du même compte sur un NOUVEAU téléphone.
+  Future<void> storeUser(EkUser user) async {
+    final p = await _p;
+    await p.setString('user_${user.phone}', jsonEncode(user.toJson()));
+  }
+
   /// Connexion : numero de telephone + mot de passe (§3).
   Future<EkUser?> login(String phone, String password) async {
     await Future<void>.delayed(const Duration(milliseconds: 700));
