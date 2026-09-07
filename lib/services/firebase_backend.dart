@@ -569,4 +569,324 @@ class FirebaseBackend {
     _inboxSub = null;
     _seenInbox.clear();
   }
+
+  // =========================================================================
+  // ADMINISTRATION — comptes admin, KPI, publicités
+  // =========================================================================
+
+  /// Le numéro est-il administrateur ?
+  Future<bool> isAdmin(String phone) async {
+    if (!_initialized) return false;
+    try {
+      final d = await _db.collection('admins').doc(phone).get();
+      return d.exists;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Crée un nouvel administrateur (au même titre que le créateur).
+  Future<void> addAdmin(String phone, String createdBy) async {
+    if (!_initialized) return;
+    await _db.collection('admins').doc(phone).set({
+      'phone': phone,
+      'role': 'admin',
+      'created_by': createdBy,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    }, fs.SetOptions(merge: true));
+  }
+
+  Future<void> removeAdmin(String phone) async {
+    if (!_initialized) return;
+    await _db.collection('admins').doc(phone).delete();
+  }
+
+  Future<List<Map<String, dynamic>>> listAdmins() async {
+    if (!_initialized) return const [];
+    try {
+      final snap = await _db.collection('admins').get();
+      return snap.docs.map((d) => d.data()).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Présence : horodatage « vu en ligne » rafraîchi périodiquement.
+  Future<void> heartbeat(String phone) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('users').doc(phone).set({
+        'last_seen': DateTime.now().millisecondsSinceEpoch,
+      }, fs.SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Session de tracking terminée : durée enregistrée pour les KPI.
+  Future<void> logTrackingSession(
+    String phone,
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('tracking_sessions').add({
+        'phone': phone,
+        'started_at': start.millisecondsSinceEpoch,
+        'ended_at': end.millisecondsSinceEpoch,
+        'duration_s': end.difference(start).inSeconds,
+      });
+    } catch (_) {}
+  }
+
+  /// Appui sur le bouton Urgence (KPI 6 et graphique 10).
+  Future<void> logPanicPress(String phone) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('panic_events').add({
+        'phone': phone,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (_) {}
+  }
+
+  /// Charge toutes les données nécessaires au tableau de bord admin.
+  Future<AdminData> fetchAdminData() async {
+    if (!_initialized) return AdminData.empty();
+    try {
+      final users = await _db.collection('users').get();
+      final sessions = await _db.collection('tracking_sessions').get();
+      final panics = await _db.collection('panic_events').get();
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      final accounts = <({int createdAt, int lastSeen})>[];
+      for (final d in users.docs) {
+        final m = d.data();
+        accounts.add((
+          createdAt: (m['created_at'] as num?)?.toInt() ?? 0,
+          lastSeen: (m['last_seen'] as num?)?.toInt() ?? 0,
+        ));
+      }
+      final trackingList = <({int startedAt, int durationS})>[];
+      for (final d in sessions.docs) {
+        final m = d.data();
+        trackingList.add((
+          startedAt: (m['started_at'] as num?)?.toInt() ?? 0,
+          durationS: (m['duration_s'] as num?)?.toInt() ?? 0,
+        ));
+      }
+      final panicTimes = <int>[
+        for (final d in panics.docs) (d.data()['at'] as num?)?.toInt() ?? 0,
+      ];
+      return AdminData(
+        now: now,
+        accounts: accounts,
+        sessions: trackingList,
+        panicTimes: panicTimes,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('fetchAdminData: $e');
+      return AdminData.empty();
+    }
+  }
+
+  // ---- Publicités ---------------------------------------------------------
+
+  /// Publicités actives (max 5, non expirées) pour l'affichage utilisateur.
+  Future<List<Map<String, dynamic>>> fetchActiveAds() async {
+    if (!_initialized) return const [];
+    try {
+      final snap = await _db.collection('ads').get();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final list = snap.docs
+          .map((d) => {...d.data(), 'id': d.id})
+          .where((a) => ((a['expires_at'] as num?)?.toInt() ?? 0) > now)
+          .toList();
+      list.sort(
+        (a, b) => ((b['created_at'] as num?)?.toInt() ?? 0).compareTo(
+          (a['created_at'] as num?)?.toInt() ?? 0,
+        ),
+      );
+      return list.take(5).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Toutes les publicités (admin), y compris expirées.
+  Future<List<Map<String, dynamic>>> fetchAllAds() async {
+    if (!_initialized) return const [];
+    try {
+      final snap = await _db.collection('ads').get();
+      final list = snap.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+      list.sort(
+        (a, b) => ((b['created_at'] as num?)?.toInt() ?? 0).compareTo(
+          (a['created_at'] as num?)?.toInt() ?? 0,
+        ),
+      );
+      return list;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Publie une publicité. Dimensions IMPOSÉES : bannière 1200 × 300 px
+  /// (ratio 4:1). [durationDays] définit l'expiration.
+  Future<String?> createAd({
+    required String title,
+    required String imageUrl,
+    required String targetUrl,
+    required int durationDays,
+    required String createdBy,
+  }) async {
+    if (!_initialized) return 'Backend indisponible';
+    final active = await fetchActiveAds();
+    if (active.length >= 5) {
+      return 'Limite atteinte : 5 publicités actives maximum.';
+    }
+    final now = DateTime.now();
+    await _db.collection('ads').add({
+      'title': title,
+      'image_url': imageUrl,
+      'target_url': targetUrl,
+      'width': 1200,
+      'height': 300,
+      'created_by': createdBy,
+      'created_at': now.millisecondsSinceEpoch,
+      'expires_at': now
+          .add(Duration(days: durationDays))
+          .millisecondsSinceEpoch,
+      'impressions': 0,
+      'clicks': 0,
+    });
+    return null;
+  }
+
+  Future<void> deleteAd(String id) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('ads').doc(id).delete();
+    } catch (_) {}
+  }
+
+  /// Statistique : la publicité a été affichée.
+  Future<void> logAdImpression(String id) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('ads').doc(id).update({
+        'impressions': fs.FieldValue.increment(1),
+      });
+    } catch (_) {}
+  }
+
+  /// Statistique : la publicité a été touchée.
+  Future<void> logAdClick(String id) async {
+    if (!_initialized) return;
+    try {
+      await _db.collection('ads').doc(id).update({
+        'clicks': fs.FieldValue.increment(1),
+      });
+    } catch (_) {}
+  }
+}
+
+/// Données brutes du tableau de bord admin (calculs côté application pour
+/// éviter tout index composite Firestore).
+class AdminData {
+  final int now;
+  final List<({int createdAt, int lastSeen})> accounts;
+  final List<({int startedAt, int durationS})> sessions;
+  final List<int> panicTimes;
+
+  const AdminData({
+    required this.now,
+    required this.accounts,
+    required this.sessions,
+    required this.panicTimes,
+  });
+
+  factory AdminData.empty() => const AdminData(
+    now: 0,
+    accounts: [],
+    sessions: [],
+    panicTimes: [],
+  );
+
+  /// KPI 1 : nombre total de comptes.
+  int get totalAccounts => accounts.length;
+
+  /// KPI 2 : comptes en ligne à l'instant (vu < 5 min).
+  int get onlineNow =>
+      accounts.where((a) => now - a.lastSeen < 5 * 60 * 1000).length;
+
+  /// KPI 3 : comptes connectés sur la période (last_seen dans la fenêtre).
+  int activeWithin(Duration d) =>
+      accounts.where((a) => now - a.lastSeen < d.inMilliseconds).length;
+
+  /// KPI 4 : nouveaux comptes sur la période.
+  int newWithin(Duration d) =>
+      accounts.where((a) => now - a.createdAt < d.inMilliseconds).length;
+
+  /// KPI 5 : durée moyenne de tracking (secondes).
+  int get avgTrackingSeconds {
+    if (sessions.isEmpty) return 0;
+    final total = sessions.fold<int>(0, (s, e) => s + e.durationS);
+    return total ~/ sessions.length;
+  }
+
+  /// KPI 6 : appuis Urgence sur la période.
+  int panicWithin(Duration d) =>
+      panicTimes.where((t) => now - t < d.inMilliseconds).length;
+
+  /// Série par intervalle pour les graphiques : [buckets] valeurs.
+  List<int> _series(
+    List<int> times,
+    Duration period,
+    int buckets, {
+    bool cumulative = false,
+    int baseline = 0,
+  }) {
+    final start = now - period.inMilliseconds;
+    final step = period.inMilliseconds / buckets;
+    final out = List<int>.filled(buckets, 0);
+    for (final t in times) {
+      if (t < start || t > now) continue;
+      final i = ((t - start) / step).floor().clamp(0, buckets - 1);
+      out[i]++;
+    }
+    if (cumulative) {
+      var run = baseline;
+      for (var i = 0; i < buckets; i++) {
+        run += out[i];
+        out[i] = run;
+      }
+    }
+    return out;
+  }
+
+  /// Graphique 7 : évolution du TOTAL de comptes (cumulé).
+  List<int> accountsTotalSeries(Duration p, int buckets) {
+    final start = now - p.inMilliseconds;
+    final before = accounts
+        .where((a) => a.createdAt > 0 && a.createdAt < start)
+        .length;
+    return _series(
+      accounts.map((a) => a.createdAt).toList(),
+      p,
+      buckets,
+      cumulative: true,
+      baseline: before,
+    );
+  }
+
+  /// Graphique 8 : nouveaux comptes (non cumulés).
+  List<int> newAccountsSeries(Duration p, int buckets) =>
+      _series(accounts.map((a) => a.createdAt).toList(), p, buckets);
+
+  /// Graphique 9 : sessions de tracking démarrées.
+  List<int> trackingSeries(Duration p, int buckets) =>
+      _series(sessions.map((s) => s.startedAt).toList(), p, buckets);
+
+  /// Graphique 10 : utilisation du bouton Urgence.
+  List<int> panicSeries(Duration p, int buckets) =>
+      _series(panicTimes, p, buckets);
 }

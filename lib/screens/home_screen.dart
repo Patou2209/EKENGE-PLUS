@@ -9,6 +9,7 @@ import '../services/haptics.dart';
 import '../services/location_service.dart';
 import '../widgets/common.dart';
 import '../widgets/ek_map.dart';
+import 'admin_screen.dart';
 import 'notifications_screen.dart';
 import 'safe_settings_sheet.dart';
 
@@ -62,6 +63,10 @@ class HomeScreen extends StatelessWidget {
 
                   // ---- Reseaux de securite ----
                   const _NetworkSummary(),
+                  const SizedBox(height: 16),
+
+                  // ---- Publicité (bannière 4:1, stats vues/clics) ----
+                  const EkAdBanner(),
                   const SizedBox(height: 10),
                 ],
               ),

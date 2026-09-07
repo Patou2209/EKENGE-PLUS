@@ -158,9 +158,34 @@ class EkState extends ChangeNotifier {
     }
     if (user != null) {
       _wireInbound(user!.phone);
+      unawaited(_checkAdmin());
+      _startHeartbeat();
     }
     bootstrapped = true;
     notifyListeners();
+  }
+
+  // ---- Administration ----------------------------------------------------
+  /// true si l'utilisateur connecté est administrateur.
+  bool isAdmin = false;
+
+  Future<void> _checkAdmin() async {
+    if (user == null) return;
+    isAdmin = await _fb.isAdmin(user!.phone);
+    if (isAdmin) notifyListeners();
+  }
+
+  // ---- Présence (KPI connectés) ------------------------------------------
+  Timer? _heartbeat;
+
+  /// Signale la présence toutes les 2 minutes (KPI « connectés »).
+  void _startHeartbeat() {
+    _heartbeat?.cancel();
+    if (user == null) return;
+    unawaited(_fb.heartbeat(user!.phone));
+    _heartbeat = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (user != null) unawaited(_fb.heartbeat(user!.phone));
+    });
   }
 
   /// §13 : branche la reception des alertes pour cet utilisateur.
@@ -492,6 +517,9 @@ class EkState extends ChangeNotifier {
       '${user!.fullName} · $phone',
     );
     _seedWatched();
+    _wireInbound(phone);
+    unawaited(_checkAdmin());
+    _startHeartbeat();
     await _persist();
     notifyListeners();
   }
@@ -504,6 +532,9 @@ class EkState extends ChangeNotifier {
     await _restore();
     // §13 : jeton FCM a jour pour recevoir les alertes des proches.
     await _fb.refreshFcmToken(phone);
+    _wireInbound(phone);
+    unawaited(_checkAdmin());
+    _startHeartbeat();
     _log(EkEventType.login, 'Connexion', 'Session ouverte · $phone');
     await _persist();
     notifyListeners();
@@ -518,6 +549,8 @@ class EkState extends ChangeNotifier {
   Future<void> signOut() async {
     stopTracking(silent: true);
     _stopClock();
+    _heartbeat?.cancel();
+    isAdmin = false;
     AlarmSound.instance.stop();
     _log(EkEventType.logout, 'Déconnexion', 'Session fermée');
     await _persist();
@@ -786,6 +819,12 @@ class EkState extends ChangeNotifier {
   Future<void> stopTracking({bool silent = false}) async {
     if (!trackingActive) return;
     trackingActive = false;
+    // KPI : durée de la session de tracking.
+    if (user != null && trackingStartedAt != null) {
+      unawaited(
+        _fb.logTrackingSession(user!.phone, trackingStartedAt!, DateTime.now()),
+      );
+    }
     LocationService.instance.stop();
     nextSafeCheck = null;
     safeCheckPending = false;
@@ -839,6 +878,8 @@ class EkState extends ChangeNotifier {
   // =======================================================================
   Future<void> triggerDanger() async {
     final now = DateTime.now();
+    // KPI 6 : appui sur le bouton Urgence.
+    if (user != null) unawaited(_fb.logPanicPress(user!.phone));
     // L'alerte part TOUJOURS, mais on tente d'obtenir la position reelle.
     await ensureLocationReady();
 
@@ -1461,6 +1502,7 @@ class EkState extends ChangeNotifier {
     _locSub?.cancel();
     _stopPeerSubs();
     _stopClock();
+    _heartbeat?.cancel();
     super.dispose();
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/design.dart';
 import '../services/ek_state.dart';
 import '../widgets/common.dart';
+import 'admin_screen.dart';
 import 'safe_settings_sheet.dart';
 
 /// EKENGE PLUS — Profil, autorisations et securite des donnees (§15).
@@ -102,6 +103,60 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
+
+                  // ---- Administration (visible uniquement pour les admins)
+                  if (st.isAdmin) ...[
+                    EkCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 13,
+                      ),
+                      color: Ek.ink,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AdminScreen(),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.admin_panel_settings_outlined,
+                            size: 19,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'TABLEAU DE BORD ADMIN',
+                                  style: Ek.over(
+                                    size: 9.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'KPI, statistiques et publicités',
+                                  style: Ek.body(
+                                    size: 11.5,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: Colors.white70,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
 
                   // ---- Parametres de securite ----
                   const EkSectionLabel('Paramètres de sécurité'),
