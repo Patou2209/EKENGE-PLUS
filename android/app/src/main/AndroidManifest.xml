@@ -33,6 +33,11 @@
         android:label="Ekenge Plus"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Canal FCM par défaut : les push reçus app FERMÉE utilisent le
+             canal haute importance (son + barre de notification). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ekenge_alerts"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

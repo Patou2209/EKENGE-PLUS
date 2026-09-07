@@ -9,6 +9,7 @@ import 'backend.dart';
 import 'contacts_service.dart';
 import 'firebase_backend.dart';
 import 'location_service.dart';
+import 'notification_service.dart';
 import 'whatsapp_otp.dart';
 
 /// Notification Push recue par l'utilisateur (§11).
@@ -185,6 +186,8 @@ class EkState extends ChangeNotifier {
       _wireInbound(user!.phone);
       unawaited(_checkAdmin());
       _startHeartbeat();
+      // Restauration cloud des listes si le stockage local est incomplet.
+      unawaited(_restoreCloudContacts());
     }
     bootstrapped = true;
     notifyListeners();
@@ -218,11 +221,22 @@ class EkState extends ChangeNotifier {
   /// (la demande de permission notifications peut prendre plusieurs
   /// secondes sur Android 13+).
   void _wireInbound(String phone) {
+    // Barre de notification : canal Android haute importance + demande
+    // EXPLICITE de la permission POST_NOTIFICATIONS (Android 13+). Sans
+    // cette demande, certains comptes ne recevaient RIEN dans la barre de
+    // notification (ni sonnerie), meme avec un jeton FCM valide.
+    unawaited(
+      NotificationService.instance.init().then(
+        (_) => NotificationService.instance.requestPermission(),
+      ),
+    );
     // Jeton FCM a jour pour recevoir les notifications push.
     unawaited(_fb.refreshFcmToken(phone));
     // Notifications FCM recues quand l'app est au premier plan.
     _fb.onForegroundMessage((title, body) {
       _pushToSelf(title, body, _severityFromTitle(title));
+      // Egalement affichee dans la barre de notification systeme.
+      unawaited(NotificationService.instance.show(title, body));
       AlarmSound.instance.chirp();
       notifyListeners();
     });
@@ -244,6 +258,9 @@ class EkState extends ChangeNotifier {
         _severityFromTitle(title),
         fromPhone: fromPhone,
       );
+      // Notification SYSTEME (barre + sonnerie) : garantit la reception
+      // meme quand le push FCM n'est pas delivre par Google Play Services.
+      unawaited(NotificationService.instance.show(title, body));
       // Reciprocite §5 : quelqu'un vient de M'AJOUTER a ses contacts de
       // securite -> il apparait immediatement dans ma page Proches.
       if (kind == 'sync_notice' && fromPhone.isNotEmpty) {
@@ -555,6 +572,10 @@ class EkState extends ChangeNotifier {
     user = u;
     await _be.setSession(phone);
     await _restore();
+    // Restauration cloud : si les listes locales sont vides mais que des
+    // contacts existent dans Firestore (réinstallation, stockage vidé),
+    // on les récupère pour que Tracking / Urgence soient complètes.
+    await _restoreCloudContacts();
     // §13 : jeton FCM a jour pour recevoir les alertes des proches.
     await _fb.refreshFcmToken(phone);
     _wireInbound(phone);
@@ -564,6 +585,45 @@ class EkState extends ChangeNotifier {
     await _persist();
     notifyListeners();
     return null;
+  }
+
+  /// Récupère depuis Firestore les contacts des listes de sécurité qui
+  /// manquent en local (réinstallation de l'app, stockage vidé). Les
+  /// contacts locaux existants ne sont jamais écrasés.
+  Future<void> _restoreCloudContacts() async {
+    if (user == null) return;
+    final cloud = await _fb.fetchOwnedContacts(user!.phone);
+    if (cloud.isEmpty) return;
+    var changed = false;
+    for (final d in cloud) {
+      final phone = (d['phone'] as String?) ?? '';
+      if (phone.isEmpty || contacts.any((c) => c.phone == phone)) continue;
+      final lists = <SafetyList>{
+        if ((d['in_tracking'] as bool?) ?? false) SafetyList.tracking,
+        if ((d['in_urgence'] as bool?) ?? false) SafetyList.urgence,
+      };
+      if (lists.isEmpty) continue;
+      final syncName = (d['sync_status'] as String?) ?? 'invited';
+      contacts.add(
+        SafetyContact(
+          id: 'c_${DateTime.now().microsecondsSinceEpoch}_$phone',
+          name: (d['name'] as String?) ?? phone,
+          phone: phone,
+          lists: lists,
+          sync: syncName == 'linked'
+              ? ContactSync.linked
+              : ContactSync.invited,
+          addedAt: DateTime.now(),
+        ),
+      );
+      changed = true;
+    }
+    if (changed) {
+      listsConfigured = listsConfigured || contacts.isNotEmpty;
+      _seedWatched();
+      await _persist();
+      notifyListeners();
+    }
   }
 
   Future<bool> accountExists(String phone) => _be.accountExists(phone);
@@ -603,6 +663,21 @@ class EkState extends ChangeNotifier {
     contactsPermission = ok;
     await _persist();
     notifyListeners();
+    return ok;
+  }
+
+  /// Relit l'état RÉEL de la permission Contacts auprès du système.
+  /// Indispensable : si l'accès a été accordé via les réglages système
+  /// (après un refus), le drapeau persisté restait à false et le
+  /// répertoire apparaissait vide — d'où l'impossibilité d'ajouter des
+  /// contacts aux listes Tracking / Urgence.
+  Future<bool> refreshContactsPermission() async {
+    final ok = await ContactsService.instance.hasPermission();
+    if (ok != contactsPermission) {
+      contactsPermission = ok;
+      await _persist();
+      notifyListeners();
+    }
     return ok;
   }
 

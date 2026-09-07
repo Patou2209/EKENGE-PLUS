@@ -15,8 +15,67 @@ import 'safe_settings_sheet.dart';
 
 /// EKENGE PLUS — Ecran principal.
 /// Regroupe §6 Tracking, §7 Danger, §8 Safe, §10 Je suis en securite.
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // La verification Safe s'affiche en POP-UP (dialog bloquant) et non plus
+  // en bandeau au-dessus de la carte.
+  bool _safeDialogOpen = false;
+  BuildContext? _safeDialogCtx;
+  EkState? _st;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final st = context.read<EkState>();
+    if (!identical(st, _st)) {
+      _st?.removeListener(_onStateChanged);
+      _st = st..addListener(_onStateChanged);
+      // Verifie l'etat initial (verification deja en cours a l'ouverture).
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onStateChanged());
+    }
+  }
+
+  @override
+  void dispose() {
+    _st?.removeListener(_onStateChanged);
+    super.dispose();
+  }
+
+  void _onStateChanged() {
+    if (!mounted) return;
+    final st = _st;
+    if (st == null) return;
+    final shouldShow = st.safeCheckPending && st.activeAlert == null;
+    if (shouldShow && !_safeDialogOpen) {
+      _safeDialogOpen = true;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder: (dCtx) {
+          _safeDialogCtx = dCtx;
+          return const _SafeCheckDialog();
+        },
+      ).then((_) {
+        _safeDialogOpen = false;
+        _safeDialogCtx = null;
+      });
+    } else if (!shouldShow && _safeDialogOpen) {
+      // Verification terminee (confirmation ou escalade) : le pop-up se
+      // ferme automatiquement. On ferme LA route du dialog uniquement
+      // (jamais une autre page qui serait au-dessus).
+      final dCtx = _safeDialogCtx;
+      if (dCtx != null && dCtx.mounted) {
+        Navigator.of(dCtx).pop();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +98,9 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                   ],
 
-                  // ---- Verification Safe en cours (§8) ----
-                  if (st.safeCheckPending && alert == null) ...[
-                    const _SafeCheckBanner(),
-                    const SizedBox(height: 16),
-                  ],
-
                   // ---- Carte interactive (§6) ----
+                  // (La verification Safe s'affiche en POP-UP, plus en
+                  // bandeau au-dessus de la carte.)
                   _MapSection(),
                   const SizedBox(height: 16),
 
@@ -233,10 +288,10 @@ class _AlertBanner extends StatelessWidget {
 }
 
 // =========================================================================
-// §8 Bandeau de verification Safe
+// §8 Pop-up de verification Safe (dialog bloquant, plus de bandeau)
 // =========================================================================
-class _SafeCheckBanner extends StatelessWidget {
-  const _SafeCheckBanner();
+class _SafeCheckDialog extends StatelessWidget {
+  const _SafeCheckDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -244,49 +299,69 @@ class _SafeCheckBanner extends StatelessWidget {
     final left = st.confirmCountdown ?? Duration.zero;
     final total = EkState.confirmWindowSeconds;
 
-    return EkCard(
-      color: Ek.warn.withValues(alpha: 0.07),
-      border: Ek.warn.withValues(alpha: 0.42),
-      shadow: Ek.glow(Ek.warn, o: 0.12, b: 26),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    // PopScope : le retour systeme ne ferme pas le pop-up, l'utilisateur
+    // doit confirmer sa securite (ou laisser l'escalade se produire).
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Ek.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.notifications_active_outlined,
-                size: 19,
-                color: Ek.warn,
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Ek.warn.withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: Ek.warn.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_outlined,
+                      size: 18,
+                      color: Ek.warn,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'VÉRIFICATION DE SÉCURITÉ',
+                      style: Ek.over(size: 10.5, color: Ek.warn),
+                    ),
+                  ),
+                  EkRing(
+                    progress: left.inSeconds / total,
+                    size: 44,
+                    color: Ek.warn,
+                    stroke: 2.5,
+                    center: Text(
+                      ekFormatClock(left),
+                      style: Ek.over(size: 8.5, color: Ek.warn),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'VÉRIFICATION DE SÉCURITÉ',
-                  style: Ek.over(size: 10.5, color: Ek.warn),
-                ),
+              const SizedBox(height: 14),
+              Text(
+                'L\'alarme sonore est déclenchée. Confirmez votre sécurité '
+                'avant la fin du compte à rebours, sans quoi une alerte '
+                'préventive sera transmise à votre liste Tracking.',
+                style: Ek.body(size: 12.5, height: 1.5),
               ),
-              EkRing(
-                progress: left.inSeconds / total,
-                size: 40,
-                color: Ek.warn,
-                stroke: 2.5,
-                center: Text(
-                  ekFormatClock(left),
-                  style: Ek.over(size: 8, color: Ek.warn),
-                ),
-              ),
+              const SizedBox(height: 18),
+              _SafeConfirmButton(),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'L\'alarme sonore est déclenchée. Confirmez votre sécurité avant '
-            'la fin du compte à rebours, sans quoi une alerte préventive sera '
-            'transmise à votre liste Tracking.',
-            style: Ek.body(size: 12.5, height: 1.5),
-          ),
-          const SizedBox(height: 16),
-          _SafeConfirmButton(),
-        ],
+        ),
       ),
     );
   }

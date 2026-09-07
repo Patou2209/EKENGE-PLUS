@@ -35,6 +35,9 @@ dependencies:
   geolocator: ^14.0.2
   # Publicités admin : choix de l'image depuis le stockage local du téléphone
   image_picker: ^1.1.2
+  # Notifications système : canal Android haute importance (son + barre de
+  # notification) pour les alertes FCM, y compris app au premier plan
+  flutter_local_notifications: 17.2.3
 
 dev_dependencies:
   flutter_test:

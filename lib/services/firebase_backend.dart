@@ -260,6 +260,25 @@ class FirebaseBackend {
     }
   }
 
+  /// Contacts SORTANTS enregistrés dans le cloud : les listes Tracking /
+  /// Urgence de [ownerPhone]. Permet de restaurer les listes après une
+  /// réinstallation ou si le stockage local a été vidé.
+  Future<List<Map<String, dynamic>>> fetchOwnedContacts(
+    String ownerPhone,
+  ) async {
+    if (!_initialized) return const [];
+    try {
+      final snap = await _db
+          .collection('contacts')
+          .where('owner_phone', isEqualTo: ownerPhone)
+          .get();
+      return snap.docs.map((d) => d.data()).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('fetchOwnedContacts: $e');
+      return const [];
+    }
+  }
+
   /// Liens ENTRANTS : les personnes qui M'ONT ajouté à leurs contacts de
   /// sécurité (réciprocité §5 — j'apparais dans leur liste, elles doivent
   /// apparaître dans ma page Proches pour que je puisse les suivre).

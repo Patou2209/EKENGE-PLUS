@@ -43,7 +43,16 @@ class _ContactPickerScreenState extends State<ContactPickerScreen> {
 
   Future<void> _load() async {
     final st = context.read<EkState>();
-    final granted = st.contactsPermission;
+    // État RÉEL de la permission auprès du système (et non le drapeau
+    // persisté, qui peut être obsolète si l'accès a été accordé via les
+    // réglages système). Corrige les comptes incapables d'ajouter des
+    // contacts alors qu'ils ont donné accès au répertoire.
+    var granted = await st.refreshContactsPermission();
+    // Si pas encore accordé, on déclenche directement la demande système.
+    if (!granted && !await st.contactsPermanentlyDenied()) {
+      granted = await st.requestContactsPermission();
+    }
+    if (!mounted) return;
     final entries = granted
         ? await st.readPhoneBook()
         : const <PhoneBookEntry>[];
@@ -501,8 +510,9 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
 
   void _submit() {
     final name = _name.text.trim();
-    final phone = _phone.text.trim();
-    final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    // L'indicatif +243 est IMPOSÉ par le champ : l'utilisateur ne saisit
+    // que le numéro national (ex. 81 234 56 78).
+    final digits = _phone.text.replaceAll(RegExp(r'[^0-9]'), '');
     if (name.isEmpty) {
       setState(() => _err = 'Indiquez le nom du contact.');
       return;
@@ -511,6 +521,7 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
       setState(() => _err = 'Numéro de téléphone invalide.');
       return;
     }
+    final phone = Backend.normalizePhone('+243$digits');
     Navigator.of(
       context,
     ).pop(PhoneBookEntry(name: name, phone: phone, hasEkengeAccount: false));
@@ -547,8 +558,8 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
             Text('Ajouter un proche', style: Ek.title(size: 17)),
             const SizedBox(height: 8),
             Text(
-              'Le numéro doit être au format international, indicatif pays '
-              'inclus.',
+              'L\'indicatif +243 (RDC) est appliqué automatiquement : '
+              'saisissez uniquement le numéro national.',
               style: Ek.body(size: 12.5, height: 1.5),
             ),
             const SizedBox(height: 20),
@@ -561,14 +572,12 @@ class _ManualEntrySheetState extends State<_ManualEntrySheet> {
               onChanged: (_) => setState(() => _err = null),
             ),
             const SizedBox(height: 14),
-            EkField(
+            // Indicatif pays +243 IMPOSÉ (affiché en préfixe fixe, non
+            // saisissable) — l'utilisateur ne tape que le numéro national.
+            EkPhoneField(
               label: 'Numéro de téléphone',
               controller: _phone,
-              hint: '+243 000 000 000',
-              icon: Icons.phone_outlined,
-              keyboard: TextInputType.phone,
               error: _err,
-              onChanged: (_) => setState(() => _err = null),
             ),
             const SizedBox(height: 20),
             EkButton(

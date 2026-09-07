@@ -81,11 +81,12 @@ class _AppShellState extends State<AppShell> {
               children: List.generate(_items.length, (i) {
                 final (out, fill, label) = _items[i];
                 final active = i == _index;
+                // Point ROUGE sur « Proches » uniquement lorsqu'au moins un
+                // proche est en ligne (partage actif). Il disparaît
+                // automatiquement quand plus personne n'est en ligne.
+                // Aucun point sur « Réseaux » (sans valeur ajoutée).
                 final badge = switch (i) {
-                  2 =>
-                    st.contacts
-                        .where((c) => c.sync == ContactSync.invited)
-                        .length,
+                  1 => st.watched.where((w) => w.trackingActive).length,
                   _ => 0,
                 };
                 return Expanded(
@@ -116,7 +117,7 @@ class _AppShellState extends State<AppShell> {
                                     height: 7,
                                     decoration: const BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: Ek.warn,
+                                      color: Ek.danger,
                                     ),
                                   ),
                                 ),
