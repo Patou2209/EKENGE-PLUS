@@ -501,11 +501,53 @@ class _MapSection extends StatelessWidget {
         ),
         EkMap(
           markers: markers,
-          trail: st.trackingActive ? st.trail : const [],
+          trail: (st.trackingActive && st.trailVisible) ? st.trail : const [],
           focus: me,
           height: 268,
           trailColor: selfColor,
         ),
+        // Controles de l'itineraire : visibles uniquement en mode tracking.
+        if (st.trackingActive) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _TrailControlButton(
+                  icon: Icons.restart_alt,
+                  label: 'RÉINITIALISER',
+                  sub: 'mon itinéraire',
+                  enabled: st.trailVisible,
+                  onTap: () {
+                    st.resetTrail();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Ek.ink,
+                        content: Text(
+                          'Itinéraire réinitialisé : le tracé recommence '
+                          'à partir de votre position actuelle.',
+                          style: Ek.body(size: 12.5, color: Colors.white),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TrailControlButton(
+                  icon: st.trailVisible
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  label: st.trailVisible ? 'MASQUER' : 'AFFICHER',
+                  sub: 'mon itinéraire',
+                  enabled: true,
+                  active: !st.trailVisible,
+                  onTap: () => st.toggleTrailVisible(),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 10),
         // Bandeau coordonnees dans une carte blanche (cf. maquette).
         EkCard(
@@ -513,6 +555,73 @@ class _MapSection extends StatelessWidget {
           child: EkMapReadout(point: me, live: st.trackingActive),
         ),
       ],
+    );
+  }
+}
+
+/// Bouton de contrôle de l'itinéraire (réinitialiser / masquer le tracé).
+class _TrailControlButton extends StatelessWidget {
+  const _TrailControlButton({
+    required this.icon,
+    required this.label,
+    required this.sub,
+    required this.onTap,
+    this.enabled = true,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String sub;
+  final VoidCallback onTap;
+  final bool enabled;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active
+        ? Ek.warn
+        : (enabled ? Ek.accentDim : Ek.textTertiary);
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Ek.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active ? Ek.warn.withValues(alpha: 0.5) : Ek.hairline,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: Ek.over(size: 8.5, color: color),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Ek.body(size: 10.5, color: Ek.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

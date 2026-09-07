@@ -103,6 +103,31 @@ class EkState extends ChangeNotifier {
   final List<GeoPoint> trail = [];
   GeoPoint? position;
 
+  /// true = le tracé de l'itinéraire est visible sur la carte.
+  /// L'utilisateur peut le masquer (les points ne sont alors plus
+  /// enregistrés ni affichés) puis le réactiver quand il veut.
+  bool trailVisible = true;
+
+  /// Réinitialise l'itinéraire : efface la ligne du chemin déjà parcouru,
+  /// le tracé recommence à partir de la position actuelle.
+  void resetTrail() {
+    trail.clear();
+    if (position != null) trail.add(position!);
+    notifyListeners();
+  }
+
+  /// Active / désactive l'affichage et l'enregistrement de l'itinéraire.
+  void toggleTrailVisible() {
+    trailVisible = !trailVisible;
+    // En réactivant, on repart de la position actuelle (pas de trait
+    // fantaisiste reliant l'ancien tracé à la nouvelle position).
+    if (trailVisible) {
+      trail.clear();
+      if (position != null) trail.add(position!);
+    }
+    notifyListeners();
+  }
+
   // ---- Safe (§8) --------------------------------------------------------
   /// Frequence de verification en minutes (15, 30, 60 ou personnalisee).
   int safeIntervalMinutes = 30;
@@ -862,7 +887,7 @@ class EkState extends ChangeNotifier {
         trackingStartedAt == null ||
         DateTime.now().difference(trackingStartedAt!) >=
             const Duration(seconds: 30);
-    if (warmedUp) {
+    if (warmedUp && trailVisible) {
       trail.add(p);
       if (trail.length > 240) trail.removeAt(0);
     }

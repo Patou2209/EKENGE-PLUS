@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,7 +17,8 @@ import '../widgets/common.dart';
 ///
 /// Réservé aux comptes de la collection Firestore « admins ».
 /// KPI, graphiques d'évolution, gestion des administrateurs et des
-/// publicités (max 5 actives, bannière 1200 × 300 imposée).
+/// publicités (max 5 actives, petite bannière discrète de 100 px,
+/// image chargée depuis le stockage local, durée d'affichage en secondes).
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
 
@@ -481,7 +487,8 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Dimensions imposées : bannière 1200 × 300 px (ratio 4:1). '
+                  'Petite bannière discrète : 100 px de hauteur, pleine '
+                  'largeur. Image choisie depuis le stockage local. '
                   'Maximum 5 publicités actives simultanément.',
                   style: Ek.body(size: 11),
                 ),
@@ -509,31 +516,19 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget _adCard(Map<String, dynamic> a, int now) {
     final expires = (a['expires_at'] as num?)?.toInt() ?? 0;
     final active = expires > now;
-    final remaining = Duration(milliseconds: (expires - now).abs());
     return EkCard(
       padding: const EdgeInsets.all(12),
       border: active ? Ek.accent.withValues(alpha: 0.25) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Aperçu bannière 4:1.
+          // Aperçu bannière : hauteur 100 px, pleine largeur.
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: AspectRatio(
-              aspectRatio: 4,
-              child: Image.network(
-                (a['image_url'] as String?) ?? '',
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Ek.surfaceHigh,
-                  child: const Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: Ek.textTertiary,
-                    ),
-                  ),
-                ),
-              ),
+            child: SizedBox(
+              height: 100,
+              width: double.infinity,
+              child: _adImage(a),
             ),
           ),
           const SizedBox(height: 10),
@@ -547,7 +542,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
               EkPill(
                 label: active
-                    ? 'Expire dans ${remaining.inDays + 1} j'
+                    ? '${(a['display_seconds'] as num?)?.toInt() ?? 10} s à l\'écran'
                     : 'Expirée',
                 color: active ? Ek.safe : Ek.textTertiary,
               ),
@@ -594,11 +589,40 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  /// Affiche l'image d'une publicité (base64 local ou ancienne URL).
+  Widget _adImage(Map<String, dynamic> a) {
+    final b64 = (a['image_b64'] as String?) ?? '';
+    if (b64.isNotEmpty) {
+      try {
+        return Image.memory(base64Decode(b64), fit: BoxFit.cover);
+      } catch (_) {}
+    }
+    final url = (a['image_url'] as String?) ?? '';
+    if (url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: Ek.surfaceHigh,
+          child: const Center(
+            child: Icon(Icons.broken_image_outlined, color: Ek.textTertiary),
+          ),
+        ),
+      );
+    }
+    return Container(
+      color: Ek.surfaceHigh,
+      child: const Center(
+        child: Icon(Icons.image_not_supported_outlined, color: Ek.textTertiary),
+      ),
+    );
+  }
+
   Future<void> _addAdDialog() async {
     final title = TextEditingController();
-    final image = TextEditingController();
     final target = TextEditingController();
-    var days = 7;
+    var seconds = 10;
+    Uint8List? imageBytes;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -614,17 +638,74 @@ class _AdminScreenState extends State<AdminScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Bannière 1200 × 300 px (ratio 4:1) OBLIGATOIRE.',
-                  style: Ek.body(size: 11.5, color: Ek.warn),
+                  'Petite bannière discrète : 100 px de hauteur, pleine '
+                  'largeur. Elle disparaît après la durée choisie.',
+                  style: Ek.body(size: 11.5, color: Ek.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                // Choix de l'image DEPUIS LE STOCKAGE LOCAL du téléphone.
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await ImagePicker().pickImage(
+                      source: ImageSource.gallery,
+                      // Compression : la bannière ne fait que 100 px de
+                      // haut, inutile de stocker une image lourde.
+                      maxWidth: 1200,
+                      maxHeight: 400,
+                      imageQuality: 70,
+                    );
+                    if (picked == null) return;
+                    final bytes = await picked.readAsBytes();
+                    // Firestore limite un document à ~1 Mo.
+                    if (bytes.lengthInBytes > 700 * 1024) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            backgroundColor: Ek.warn,
+                            content: Text(
+                              'Image trop lourde (max 700 Ko). '
+                              'Choisissez une image plus légère.',
+                              style: Ek.body(size: 12, color: Colors.white),
+                            ),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    setD(() => imageBytes = bytes);
+                  },
+                  child: Container(
+                    height: 100,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Ek.surfaceHigh,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: imageBytes != null ? Ek.accent : Ek.hairline,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: imageBytes != null
+                        ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 26,
+                                color: Ek.accentDim,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'CHOISIR UNE IMAGE (STOCKAGE LOCAL)',
+                                style: Ek.over(size: 8, color: Ek.accentDim),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 EkField(label: 'Titre', controller: title),
-                const SizedBox(height: 10),
-                EkField(
-                  label: 'URL de l\'image (1200 × 300)',
-                  controller: image,
-                  keyboard: TextInputType.url,
-                ),
                 const SizedBox(height: 10),
                 EkField(
                   label: 'Lien au clic (facultatif)',
@@ -632,24 +713,27 @@ class _AdminScreenState extends State<AdminScreen> {
                   keyboard: TextInputType.url,
                 ),
                 const SizedBox(height: 12),
-                Text('DURÉE DE DIFFUSION', style: Ek.over(size: 9)),
+                Text('DURÉE D\'AFFICHAGE À L\'ÉCRAN', style: Ek.over(size: 9)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 6,
                   children: [
-                    for (final d in [1, 3, 7, 14, 30])
+                    for (final s in [5, 10, 15, 20, 30, 60])
                       ChoiceChip(
                         label: Text(
-                          '$d j',
+                          '$s s',
                           style: Ek.over(
                             size: 9,
-                            color: days == d ? Colors.white : Ek.textSecondary,
+                            color: seconds == s
+                                ? Colors.white
+                                : Ek.textSecondary,
                           ),
                         ),
-                        selected: days == d,
+                        selected: seconds == s,
                         selectedColor: Ek.ink,
                         backgroundColor: Ek.surfaceHigh,
-                        onSelected: (_) => setD(() => days = d),
+                        onSelected: (_) => setD(() => seconds = s),
                       ),
                   ],
                 ),
@@ -673,13 +757,24 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    if (title.text.trim().isEmpty || image.text.trim().isEmpty) return;
+    if (title.text.trim().isEmpty || imageBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Ek.warn,
+          content: Text(
+            'Titre et image (stockage local) obligatoires.',
+            style: Ek.body(size: 12.5, color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
     final st = context.read<EkState>();
     final err = await FirebaseBackend.instance.createAd(
       title: title.text.trim(),
-      imageUrl: image.text.trim(),
+      imageB64: base64Encode(imageBytes!),
       targetUrl: target.text.trim(),
-      durationDays: days,
+      displaySeconds: seconds,
       createdBy: st.user?.phone ?? '',
     );
     if (!mounted) return;
@@ -697,7 +792,12 @@ class _AdminScreenState extends State<AdminScreen> {
 }
 
 /// Bannière publicitaire côté UTILISATEUR (affichée sur l'accueil).
-/// Comptabilise 1 affichage au montage et 1 clic au toucher.
+///
+/// Format DISCRET : 100 px de hauteur, pleine largeur — elle ne gêne pas
+/// la vue de l'utilisateur. Elle disparaît automatiquement après la durée
+/// d'affichage définie par l'admin (5 s, 10 s, etc.) et peut aussi être
+/// fermée manuellement (croix). Comptabilise 1 affichage au montage et
+/// 1 clic au toucher.
 class EkAdBanner extends StatefulWidget {
   const EkAdBanner({super.key});
 
@@ -707,11 +807,19 @@ class EkAdBanner extends StatefulWidget {
 
 class _EkAdBannerState extends State<EkAdBanner> {
   Map<String, dynamic>? _ad;
+  bool _visible = false;
+  Timer? _hideTimer;
 
   @override
   void initState() {
     super.initState();
     _pick();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _pick() async {
@@ -724,67 +832,125 @@ class _EkAdBannerState extends State<EkAdBanner> {
       ),
     );
     final ad = ads.first;
-    setState(() => _ad = ad);
+    setState(() {
+      _ad = ad;
+      _visible = true;
+    });
+    // La bannière disparaît d'elle-même après la durée définie par
+    // l'admin — pour ne pas gêner la vue de l'utilisateur.
+    final secs = (ad['display_seconds'] as num?)?.toInt() ?? 10;
+    _hideTimer = Timer(Duration(seconds: secs), () {
+      if (mounted) setState(() => _visible = false);
+    });
     // Statistique : affichage comptabilisé.
     await FirebaseBackend.instance.logAdImpression(
       (ad['id'] as String?) ?? '',
     );
   }
 
+  Widget _image(Map<String, dynamic> ad) {
+    final b64 = (ad['image_b64'] as String?) ?? '';
+    if (b64.isNotEmpty) {
+      try {
+        return Image.memory(
+          base64Decode(b64),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      } catch (_) {}
+    }
+    final url = (ad['image_url'] as String?) ?? '';
+    if (url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
     final ad = _ad;
-    if (ad == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: GestureDetector(
-        onTap: () async {
-          // Statistique : clic comptabilisé.
-          await FirebaseBackend.instance.logAdClick(
-            (ad['id'] as String?) ?? '',
-          );
-          final url = (ad['target_url'] as String?) ?? '';
-          if (url.isNotEmpty) {
-            final uri = Uri.tryParse(url);
-            if (uri != null) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          }
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 4,
-                child: Image.network(
-                  (ad['image_url'] as String?) ?? '',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    // AnimatedSize : la bannière se replie en douceur quand elle expire.
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+      child: (ad == null || !_visible)
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: GestureDetector(
+                onTap: () async {
+                  // Statistique : clic comptabilisé.
+                  await FirebaseBackend.instance.logAdClick(
+                    (ad['id'] as String?) ?? '',
+                  );
+                  final url = (ad['target_url'] as String?) ?? '';
+                  if (url.isNotEmpty) {
+                    final uri = Uri.tryParse(url);
+                    if (uri != null) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  }
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Stack(
+                    children: [
+                      // Petite bannière discrète : 100 px, pleine largeur.
+                      SizedBox(
+                        height: 100,
+                        width: double.infinity,
+                        child: _image(ad),
+                      ),
+                      Positioned(
+                        top: 6,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'PUB',
+                            style: Ek.over(size: 7, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      // Fermeture manuelle : l'utilisateur garde le contrôle.
+                      Positioned(
+                        top: 4,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _visible = false),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              Positioned(
-                top: 6,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'PUB',
-                    style: Ek.over(size: 7, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

@@ -74,6 +74,9 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
   StreamSubscription<GeoPoint>? _sub;
   GeoPoint? _position;
   final List<GeoPoint> _trail = [];
+
+  /// true = le tracé de l'itinéraire est visible (mode invité).
+  bool _trailVisible = true;
   DateTime? _startedAt;
 
   String get _trackingLink => 'https://ekenge-plus.web.app/suivi/$_trackingToken';
@@ -293,7 +296,7 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
               const Duration(seconds: 30);
       setState(() {
         _position = p;
-        if (warmedUp) {
+        if (warmedUp && _trailVisible) {
           _trail.add(p);
           if (_trail.length > 240) _trail.removeAt(0);
         }
@@ -952,6 +955,61 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
     await _sendWhatsApp(next.first);
   }
 
+  /// Bouton de contrôle de l'itinéraire (réinitialiser / masquer).
+  Widget _trailButton({
+    required IconData icon,
+    required String label,
+    required String sub,
+    required VoidCallback onTap,
+    bool enabled = true,
+    bool active = false,
+  }) {
+    final color = active
+        ? Ek.warn
+        : (enabled ? Ek.accentDim : Ek.textTertiary);
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Ek.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active ? Ek.warn.withValues(alpha: 0.5) : Ek.hairline,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: Ek.over(size: 8.5, color: color),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Ek.body(size: 10.5, color: Ek.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // --- Etape 5 : partage en direct -------------------------------------------
   Widget _buildLive() {
     final markers = _position == null
@@ -986,11 +1044,67 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                 borderRadius: BorderRadius.circular(Ek.r20),
                 child: EkMap(
                   markers: markers,
-                  trail: _trail,
+                  trail: _trailVisible ? _trail : const [],
                   focus: _position,
                   height: 320,
                 ),
               ),
+              // Contrôles de l'itinéraire (réinitialiser / masquer).
+              if (_sharing) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _trailButton(
+                        icon: Icons.restart_alt,
+                        label: 'RÉINITIALISER',
+                        sub: 'mon itinéraire',
+                        enabled: _trailVisible,
+                        onTap: () {
+                          setState(() {
+                            _trail.clear();
+                            if (_position != null) _trail.add(_position!);
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: Ek.ink,
+                              content: Text(
+                                'Itinéraire réinitialisé : le tracé '
+                                'recommence à partir de votre position.',
+                                style: Ek.body(
+                                  size: 12.5,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _trailButton(
+                        icon: _trailVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        label: _trailVisible ? 'MASQUER' : 'AFFICHER',
+                        sub: 'mon itinéraire',
+                        enabled: true,
+                        active: !_trailVisible,
+                        onTap: () {
+                          setState(() {
+                            _trailVisible = !_trailVisible;
+                            if (_trailVisible) {
+                              _trail.clear();
+                              if (_position != null) _trail.add(_position!);
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               EkMapReadout(point: _position, live: true),
               const SizedBox(height: 16),

@@ -729,13 +729,16 @@ class FirebaseBackend {
     }
   }
 
-  /// Publie une publicité. Dimensions IMPOSÉES : bannière 1200 × 300 px
-  /// (ratio 4:1). [durationDays] définit l'expiration.
+  /// Publie une publicité. L'image est choisie depuis le STOCKAGE LOCAL
+  /// du téléphone (encodée en base64). Format imposé : petite bannière
+  /// discrète de 100 px de hauteur, pleine largeur. [displaySeconds]
+  /// définit la durée d'affichage à l'écran (5 s, 10 s, etc.) après quoi
+  /// la bannière disparaît pour ne pas gêner la vue de l'utilisateur.
   Future<String?> createAd({
     required String title,
-    required String imageUrl,
+    required String imageB64,
     required String targetUrl,
-    required int durationDays,
+    required int displaySeconds,
     required String createdBy,
   }) async {
     if (!_initialized) return 'Backend indisponible';
@@ -746,15 +749,13 @@ class FirebaseBackend {
     final now = DateTime.now();
     await _db.collection('ads').add({
       'title': title,
-      'image_url': imageUrl,
+      'image_b64': imageB64,
       'target_url': targetUrl,
-      'width': 1200,
-      'height': 300,
+      'display_seconds': displaySeconds,
       'created_by': createdBy,
       'created_at': now.millisecondsSinceEpoch,
-      'expires_at': now
-          .add(Duration(days: durationDays))
-          .millisecondsSinceEpoch,
+      // Campagne active 30 jours ; supprimable à tout moment par l'admin.
+      'expires_at': now.add(const Duration(days: 30)).millisecondsSinceEpoch,
       'impressions': 0,
       'clicks': 0,
     });
