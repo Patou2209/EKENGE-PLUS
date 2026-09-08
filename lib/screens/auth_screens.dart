@@ -45,16 +45,17 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: 10),
                 Container(width: 46, height: 2.4, color: Ek.accent),
                 const SizedBox(height: 18),
-                // Slogan principal
+                // Slogan principal : en minuscules, plus discret que la
+                // marque EKENGE + (taille inférieure au wordmark 28).
                 Text(
-                  'EN SÉCURITÉ.',
+                  'En sécurité.',
                   textAlign: TextAlign.center,
-                  style: Ek.title(size: 30),
+                  style: Ek.title(size: 21),
                 ),
                 Text(
-                  'ENSEMBLE.',
+                  'Ensemble.',
                   textAlign: TextAlign.center,
-                  style: Ek.title(size: 30, color: Ek.accent),
+                  style: Ek.title(size: 21, color: Ek.accent),
                 ),
                 const SizedBox(height: 12),
                 Text(

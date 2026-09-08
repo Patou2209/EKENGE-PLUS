@@ -450,7 +450,7 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget _adsSection() {
     final now = DateTime.now().millisecondsSinceEpoch;
     final activeCount = _ads
-        .where((a) => ((a['expires_at'] as num?)?.toInt() ?? 0) > now)
+        .where((a) => FirebaseBackend.adIsActive(a, now))
         .length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,7 +458,7 @@ class _AdminScreenState extends State<AdminScreen> {
         EkSectionLabel(
           'Publicités ($activeCount/5 actives)',
           trailing: GestureDetector(
-            onTap: activeCount >= 5 ? null : _addAdDialog,
+            onTap: activeCount >= 5 ? null : () => _adDialog(),
             child: Row(
               children: [
                 Icon(
@@ -514,8 +514,20 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Widget _adCard(Map<String, dynamic> a, int now) {
-    final expires = (a['expires_at'] as num?)?.toInt() ?? 0;
-    final active = expires > now;
+    final active = FirebaseBackend.adIsActive(a, now);
+    final createdAt = (a['created_at'] as num?)?.toInt() ?? 0;
+    final created = createdAt > 0
+        ? DateTime.fromMillisecondsSinceEpoch(createdAt)
+        : null;
+    final mode = (a['expiry_mode'] as String?) ?? 'days';
+    final value = (a['expiry_value'] as num?)?.toInt() ?? 0;
+    final expiryLabel = switch (mode) {
+      'views' => 'Expire à $value vues',
+      'clicks' => 'Expire à $value clics',
+      _ => value > 0
+          ? 'Expire après $value jour(s)'
+          : 'Expire le ${_fmtDate(DateTime.fromMillisecondsSinceEpoch((a['expires_at'] as num?)?.toInt() ?? 0))}',
+    };
     return EkCard(
       padding: const EdgeInsets.all(12),
       border: active ? Ek.accent.withValues(alpha: 0.25) : null,
@@ -549,6 +561,32 @@ class _AdminScreenState extends State<AdminScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          // Date de création + critère d'expiration de l'annonce.
+          Row(
+            children: [
+              const Icon(
+                Icons.event_outlined,
+                size: 13,
+                color: Ek.textTertiary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                created != null
+                    ? 'Créée le ${_fmtDate(created)}'
+                    : 'Date inconnue',
+                style: Ek.over(size: 8.5),
+              ),
+              const SizedBox(width: 14),
+              const Icon(
+                Icons.hourglass_bottom_outlined,
+                size: 13,
+                color: Ek.textTertiary,
+              ),
+              const SizedBox(width: 4),
+              Expanded(child: Text(expiryLabel, style: Ek.over(size: 8.5))),
+            ],
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               const Icon(
@@ -558,7 +596,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
               const SizedBox(width: 4),
               Text(
-                '${(a['impressions'] as num?)?.toInt() ?? 0} affichages',
+                '${(a['impressions'] as num?)?.toInt() ?? 0} vues',
                 style: Ek.over(size: 8.5),
               ),
               const SizedBox(width: 14),
@@ -569,6 +607,14 @@ class _AdminScreenState extends State<AdminScreen> {
                 style: Ek.over(size: 8.5, color: Ek.accent),
               ),
               const Spacer(),
+              // Modifier la publicité.
+              GestureDetector(
+                onTap: () => _adDialog(existing: a),
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 14),
+                  child: Icon(Icons.edit_outlined, size: 17, color: Ek.accent),
+                ),
+              ),
               GestureDetector(
                 onTap: () async {
                   await FirebaseBackend.instance.deleteAd(
@@ -588,6 +634,9 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
     );
   }
+
+  static String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   /// Affiche l'image d'une publicité (base64 local ou ancienne URL).
   Widget _adImage(Map<String, dynamic> a) {
@@ -618,11 +667,33 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  Future<void> _addAdDialog() async {
-    final title = TextEditingController();
-    final target = TextEditingController();
-    var seconds = 10;
+  /// Création OU modification d'une publicité ([existing] non nul = édition).
+  Future<void> _adDialog({Map<String, dynamic>? existing}) async {
+    final editing = existing != null;
+    final title = TextEditingController(
+      text: (existing?['title'] as String?) ?? '',
+    );
+    final target = TextEditingController(
+      text: (existing?['target_url'] as String?) ?? '',
+    );
+    var seconds = (existing?['display_seconds'] as num?)?.toInt() ?? 10;
+    if (![5, 10, 15, 20, 30, 60].contains(seconds)) seconds = 10;
+    // Critère d'expiration : jours de diffusion, nombre de vues ou de clics.
+    var expiryMode = (existing?['expiry_mode'] as String?) ?? 'days';
+    final expiryValue = TextEditingController(
+      text:
+          ((existing?['expiry_value'] as num?)?.toInt() ?? 30).toString(),
+    );
     Uint8List? imageBytes;
+    // En édition, l'image actuelle sert d'aperçu tant qu'aucune nouvelle
+    // image n'est choisie.
+    Uint8List? currentImage;
+    final b64 = (existing?['image_b64'] as String?) ?? '';
+    if (b64.isNotEmpty) {
+      try {
+        currentImage = base64Decode(b64);
+      } catch (_) {}
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -631,7 +702,10 @@ class _AdminScreenState extends State<AdminScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          title: Text('Publier une publicité', style: Ek.body(size: 16)),
+          title: Text(
+            editing ? 'Modifier la publicité' : 'Publier une publicité',
+            style: Ek.body(size: 16),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -685,8 +759,11 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: imageBytes != null
-                        ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                    child: (imageBytes ?? currentImage) != null
+                        ? Image.memory(
+                            (imageBytes ?? currentImage)!,
+                            fit: BoxFit.cover,
+                          )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -704,6 +781,13 @@ class _AdminScreenState extends State<AdminScreen> {
                           ),
                   ),
                 ),
+                if (editing) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Touchez l\'image pour la remplacer (facultatif).',
+                    style: Ek.body(size: 10, color: Ek.textTertiary),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 EkField(label: 'Titre', controller: title),
                 const SizedBox(height: 10),
@@ -737,6 +821,46 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                // Critère d'expiration de l'annonce, au choix de l'admin.
+                Text('CRITÈRE D\'EXPIRATION', style: Ek.over(size: 9)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    for (final m in const [
+                      ('days', 'Jours de diffusion'),
+                      ('views', 'Nombre de vues'),
+                      ('clicks', 'Nombre de clics'),
+                    ])
+                      ChoiceChip(
+                        label: Text(
+                          m.$2,
+                          style: Ek.over(
+                            size: 9,
+                            color: expiryMode == m.$1
+                                ? Colors.white
+                                : Ek.textSecondary,
+                          ),
+                        ),
+                        selected: expiryMode == m.$1,
+                        selectedColor: Ek.ink,
+                        backgroundColor: Ek.surfaceHigh,
+                        onSelected: (_) => setD(() => expiryMode = m.$1),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                EkField(
+                  label: switch (expiryMode) {
+                    'views' => 'Nombre de vues (ex : 1000)',
+                    'clicks' => 'Nombre de clics (ex : 1000)',
+                    _ => 'Nombre de jours (ex : 30)',
+                  },
+                  controller: expiryValue,
+                  keyboard: TextInputType.number,
+                ),
               ],
             ),
           ),
@@ -748,7 +872,7 @@ class _AdminScreenState extends State<AdminScreen> {
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text(
-                'PUBLIER',
+                editing ? 'ENREGISTRER' : 'PUBLIER',
                 style: Ek.over(size: 10, color: Ek.accent),
               ),
             ),
@@ -757,26 +881,45 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    if (title.text.trim().isEmpty || imageBytes == null) {
+    final value = int.tryParse(expiryValue.text.trim()) ?? 0;
+    if (title.text.trim().isEmpty ||
+        (!editing && imageBytes == null) ||
+        value <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Ek.warn,
           content: Text(
-            'Titre et image (stockage local) obligatoires.',
+            'Titre, image (stockage local) et valeur d\'expiration '
+            'obligatoires.',
             style: Ek.body(size: 12.5, color: Colors.white),
           ),
         ),
       );
       return;
     }
-    final st = context.read<EkState>();
-    final err = await FirebaseBackend.instance.createAd(
-      title: title.text.trim(),
-      imageB64: base64Encode(imageBytes!),
-      targetUrl: target.text.trim(),
-      displaySeconds: seconds,
-      createdBy: st.user?.phone ?? '',
-    );
+    final String? err;
+    if (editing) {
+      err = await FirebaseBackend.instance.updateAd(
+        id: (existing['id'] as String?) ?? '',
+        title: title.text.trim(),
+        targetUrl: target.text.trim(),
+        displaySeconds: seconds,
+        expiryMode: expiryMode,
+        expiryValue: value,
+        imageB64: imageBytes != null ? base64Encode(imageBytes!) : null,
+      );
+    } else {
+      final st = context.read<EkState>();
+      err = await FirebaseBackend.instance.createAd(
+        title: title.text.trim(),
+        imageB64: base64Encode(imageBytes!),
+        targetUrl: target.text.trim(),
+        displaySeconds: seconds,
+        createdBy: st.user?.phone ?? '',
+        expiryMode: expiryMode,
+        expiryValue: value,
+      );
+    }
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -813,7 +956,7 @@ class _EkAdBannerState extends State<EkAdBanner> {
   @override
   void initState() {
     super.initState();
-    _pick();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pick());
   }
 
   @override
@@ -823,6 +966,8 @@ class _EkAdBannerState extends State<EkAdBanner> {
   }
 
   Future<void> _pick() async {
+    // Les publicités ne sont PAS diffusées sur les comptes administrateurs.
+    if (mounted && context.read<EkState>().isAdmin) return;
     final ads = await FirebaseBackend.instance.fetchActiveAds();
     if (!mounted || ads.isEmpty) return;
     // Rotation : la publicité la moins affichée passe en premier.
@@ -873,6 +1018,8 @@ class _EkAdBannerState extends State<EkAdBanner> {
   @override
   Widget build(BuildContext context) {
     final ad = _ad;
+    // Aucune publicité pour les comptes administrateurs.
+    if (context.watch<EkState>().isAdmin) return const SizedBox.shrink();
     // AnimatedSize : la bannière se replie en douceur quand elle expire.
     return AnimatedSize(
       duration: const Duration(milliseconds: 350),

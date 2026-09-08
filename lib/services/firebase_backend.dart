@@ -546,10 +546,42 @@ class FirebaseBackend {
       await _db.collection('users').doc(phone).set({
         'fcm_token': t,
       }, fs.SetOptions(merge: true));
+      // UNICITE du jeton : un jeton FCM identifie UN appareil. Si un autre
+      // compte (ancienne session sur ce meme telephone) detient encore ce
+      // jeton, il recevrait A TORT les notifications destinees a ce compte.
+      // On retire donc ce jeton de tous les autres documents utilisateurs.
+      await _claimFcmToken(phone, t);
       FirebaseMessaging.instance.onTokenRefresh.listen((nt) {
         _db.collection('users').doc(phone).set({
           'fcm_token': nt,
         }, fs.SetOptions(merge: true));
+        _claimFcmToken(phone, nt);
+      });
+    } catch (_) {}
+  }
+
+  /// Retire le jeton [token] de tout utilisateur autre que [phone].
+  Future<void> _claimFcmToken(String phone, String token) async {
+    try {
+      final dup = await _db
+          .collection('users')
+          .where('fcm_token', isEqualTo: token)
+          .get();
+      for (final d in dup.docs) {
+        if (d.id != phone) {
+          await d.reference.update({'fcm_token': fs.FieldValue.delete()});
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// A la deconnexion : supprime le jeton FCM du compte pour que cet
+  /// appareil ne recoive plus les notifications destinees a ce compte.
+  Future<void> clearFcmToken(String phone) async {
+    if (!_initialized || kIsWeb) return;
+    try {
+      await _db.collection('users').doc(phone).update({
+        'fcm_token': fs.FieldValue.delete(),
       });
     } catch (_) {}
   }
@@ -758,6 +790,24 @@ class FirebaseBackend {
 
   // ---- Publicités ---------------------------------------------------------
 
+  /// Une publicité est-elle encore active selon son critère d'expiration ?
+  /// Critères possibles : nombre de JOURS de diffusion (expires_at),
+  /// nombre de VUES (impressions) ou nombre de CLICS.
+  static bool adIsActive(Map<String, dynamic> a, int now) {
+    final mode = (a['expiry_mode'] as String?) ?? 'days';
+    final limit = (a['expiry_value'] as num?)?.toInt() ?? 0;
+    switch (mode) {
+      case 'views':
+        if (limit <= 0) return true;
+        return ((a['impressions'] as num?)?.toInt() ?? 0) < limit;
+      case 'clicks':
+        if (limit <= 0) return true;
+        return ((a['clicks'] as num?)?.toInt() ?? 0) < limit;
+      default: // 'days' + anciennes annonces (expires_at)
+        return ((a['expires_at'] as num?)?.toInt() ?? 0) > now;
+    }
+  }
+
   /// Publicités actives (max 5, non expirées) pour l'affichage utilisateur.
   Future<List<Map<String, dynamic>>> fetchActiveAds() async {
     if (!_initialized) return const [];
@@ -766,7 +816,7 @@ class FirebaseBackend {
       final now = DateTime.now().millisecondsSinceEpoch;
       final list = snap.docs
           .map((d) => {...d.data(), 'id': d.id})
-          .where((a) => ((a['expires_at'] as num?)?.toInt() ?? 0) > now)
+          .where((a) => adIsActive(a, now))
           .toList();
       list.sort(
         (a, b) => ((b['created_at'] as num?)?.toInt() ?? 0).compareTo(
@@ -807,6 +857,8 @@ class FirebaseBackend {
     required String targetUrl,
     required int displaySeconds,
     required String createdBy,
+    String expiryMode = 'days',
+    int expiryValue = 30,
   }) async {
     if (!_initialized) return 'Backend indisponible';
     final active = await fetchActiveAds();
@@ -821,12 +873,55 @@ class FirebaseBackend {
       'display_seconds': displaySeconds,
       'created_by': createdBy,
       'created_at': now.millisecondsSinceEpoch,
-      // Campagne active 30 jours ; supprimable à tout moment par l'admin.
-      'expires_at': now.add(const Duration(days: 30)).millisecondsSinceEpoch,
+      // Critère d'expiration choisi par l'admin : jours / vues / clics.
+      'expiry_mode': expiryMode,
+      'expiry_value': expiryValue,
+      'expires_at': expiryMode == 'days'
+          ? now.add(Duration(days: expiryValue)).millisecondsSinceEpoch
+          : 0,
       'impressions': 0,
       'clicks': 0,
     });
     return null;
+  }
+
+  /// Modifie une publicité existante (titre, lien, durée, critère
+  /// d'expiration et — facultativement — une nouvelle image).
+  Future<String?> updateAd({
+    required String id,
+    required String title,
+    required String targetUrl,
+    required int displaySeconds,
+    required String expiryMode,
+    required int expiryValue,
+    String? imageB64,
+  }) async {
+    if (!_initialized) return 'Backend indisponible';
+    try {
+      final doc = await _db.collection('ads').doc(id).get();
+      final createdAt =
+          (doc.data()?['created_at'] as num?)?.toInt() ??
+          DateTime.now().millisecondsSinceEpoch;
+      final data = <String, dynamic>{
+        'title': title,
+        'target_url': targetUrl,
+        'display_seconds': displaySeconds,
+        'expiry_mode': expiryMode,
+        'expiry_value': expiryValue,
+        'expires_at': expiryMode == 'days'
+            ? DateTime.fromMillisecondsSinceEpoch(
+                createdAt,
+              ).add(Duration(days: expiryValue)).millisecondsSinceEpoch
+            : 0,
+      };
+      if (imageB64 != null && imageB64.isNotEmpty) {
+        data['image_b64'] = imageB64;
+      }
+      await _db.collection('ads').doc(id).update(data);
+      return null;
+    } catch (e) {
+      return 'Modification impossible : $e';
+    }
   }
 
   Future<void> deleteAd(String id) async {

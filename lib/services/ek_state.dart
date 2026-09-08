@@ -704,6 +704,10 @@ class EkState extends ChangeNotifier {
     stopTracking(silent: true);
     _stopClock();
     _heartbeat?.cancel();
+    // Cet appareil ne doit plus recevoir les notifications de ce compte :
+    // sans cela, un autre utilisateur se connectant ensuite sur ce telephone
+    // recevrait a tort les alertes destinees a l'ancien compte.
+    if (user != null) unawaited(_fb.clearFcmToken(user!.phone));
     isAdmin = false;
     AlarmSound.instance.stop();
     _log(EkEventType.logout, 'Déconnexion', 'Session fermée');

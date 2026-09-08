@@ -7,6 +7,7 @@ import '../services/ek_state.dart';
 import '../services/location_service.dart';
 import '../widgets/common.dart';
 import '../widgets/ek_map.dart';
+import 'admin_screen.dart';
 import 'follow_screen.dart';
 
 /// EKENGE PLUS — §5 / §6 Suivi des proches.
@@ -75,6 +76,9 @@ class WatchScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                         ],
+                        // Publicité : entre la carte interactive et le début
+                        // de la liste des proches (jamais pour les admins).
+                        const EkAdBanner(),
                         EkSectionLabel('${st.watched.length} proche(s)'),
                         ...List.generate(st.watched.length, (i) {
                           return Padding(
