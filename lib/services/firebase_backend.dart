@@ -669,6 +669,25 @@ class FirebaseBackend {
     } catch (_) {}
   }
 
+  /// Garantit que le document utilisateur possède un `created_at` : les
+  /// anciens documents (créés uniquement par heartbeat/FCM) en étaient
+  /// dépourvus, ce qui faussait les statistiques admin. Appelé une seule
+  /// fois par session au démarrage.
+  Future<void> ensureCreatedAt(String phone, {int? fallbackMs}) async {
+    if (!_initialized) return;
+    try {
+      final ref = _db.collection('users').doc(phone);
+      final snap = await ref.get();
+      final data = snap.data();
+      if (data == null) return;
+      final existing = (data['created_at'] as num?)?.toInt() ?? 0;
+      if (existing > 0) return;
+      await ref.set({
+        'created_at': fallbackMs ?? DateTime.now().millisecondsSinceEpoch,
+      }, fs.SetOptions(merge: true));
+    } catch (_) {}
+  }
+
   /// Session de tracking terminée : durée enregistrée pour les KPI.
   Future<void> logTrackingSession(
     String phone,
@@ -913,11 +932,14 @@ class AdminData {
   }
 
   /// Graphique 7 : évolution du TOTAL de comptes (cumulé).
+  ///
+  /// Les comptes sans `created_at` (anciens documents) sont comptés dans la
+  /// base de départ : ils existaient déjà avant la fenêtre affichée. Ainsi le
+  /// dernier point du graphique correspond toujours au total réel de comptes.
   List<int> accountsTotalSeries(Duration p, int buckets) {
     final start = now - p.inMilliseconds;
-    final before = accounts
-        .where((a) => a.createdAt > 0 && a.createdAt < start)
-        .length;
+    // createdAt == 0 (champ manquant) => compte antérieur à la fenêtre.
+    final before = accounts.where((a) => a.createdAt < start).length;
     return _series(
       accounts.map((a) => a.createdAt).toList(),
       p,

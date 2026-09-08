@@ -211,6 +211,14 @@ class EkState extends ChangeNotifier {
     _heartbeat?.cancel();
     if (user == null) return;
     unawaited(_fb.heartbeat(user!.phone));
+    // Statistiques admin fiables : rétablit created_at si absent (anciens
+    // documents créés uniquement par heartbeat/FCM).
+    unawaited(
+      _fb.ensureCreatedAt(
+        user!.phone,
+        fallbackMs: user!.createdAt.millisecondsSinceEpoch,
+      ),
+    );
     _heartbeat = Timer.periodic(const Duration(minutes: 2), (_) {
       if (user != null) unawaited(_fb.heartbeat(user!.phone));
     });

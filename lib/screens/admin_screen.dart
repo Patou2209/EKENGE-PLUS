@@ -319,7 +319,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 'Il y a ${_period.label.toLowerCase()}',
                 style: Ek.over(size: 7.5),
               ),
-              Text('Maintenant', style: Ek.over(size: 7.5)),
+              Text('Aujourd\'hui', style: Ek.over(size: 7.5)),
             ],
           ),
         ],
