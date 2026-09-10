@@ -949,9 +949,15 @@ class EkAdBanner extends StatefulWidget {
 }
 
 class _EkAdBannerState extends State<EkAdBanner> {
+  /// Pause entre deux affichages : la bannière disparaît puis RÉAPPARAÎT
+  /// au bout d'un moment — comportement identique sur toutes les pages
+  /// (Sécurité, Proches…).
+  static const _pause = Duration(seconds: 45);
+
   Map<String, dynamic>? _ad;
   bool _visible = false;
   Timer? _hideTimer;
+  Timer? _nextTimer;
 
   @override
   void initState() {
@@ -962,14 +968,30 @@ class _EkAdBannerState extends State<EkAdBanner> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _nextTimer?.cancel();
     super.dispose();
   }
 
+  /// Cache la bannière puis programme sa réapparition (cycle permanent).
+  void _hideThenReschedule() {
+    if (!mounted) return;
+    setState(() => _visible = false);
+    _nextTimer?.cancel();
+    _nextTimer = Timer(_pause, _pick);
+  }
+
   Future<void> _pick() async {
+    if (!mounted) return;
     // Les publicités ne sont PAS diffusées sur les comptes administrateurs.
-    if (mounted && context.read<EkState>().isAdmin) return;
+    if (context.read<EkState>().isAdmin) return;
     final ads = await FirebaseBackend.instance.fetchActiveAds();
-    if (!mounted || ads.isEmpty) return;
+    if (!mounted) return;
+    if (ads.isEmpty) {
+      // Aucune annonce active pour l'instant : on réessaie plus tard.
+      _nextTimer?.cancel();
+      _nextTimer = Timer(_pause, _pick);
+      return;
+    }
     // Rotation : la publicité la moins affichée passe en premier.
     ads.sort(
       (a, b) => ((a['impressions'] as num?)?.toInt() ?? 0).compareTo(
@@ -982,11 +1004,10 @@ class _EkAdBannerState extends State<EkAdBanner> {
       _visible = true;
     });
     // La bannière disparaît d'elle-même après la durée définie par
-    // l'admin — pour ne pas gêner la vue de l'utilisateur.
+    // l'admin, puis REVIENT après la pause (rotation des annonces).
     final secs = (ad['display_seconds'] as num?)?.toInt() ?? 10;
-    _hideTimer = Timer(Duration(seconds: secs), () {
-      if (mounted) setState(() => _visible = false);
-    });
+    _hideTimer?.cancel();
+    _hideTimer = Timer(Duration(seconds: secs), _hideThenReschedule);
     // Statistique : affichage comptabilisé.
     await FirebaseBackend.instance.logAdImpression(
       (ad['id'] as String?) ?? '',
@@ -1073,12 +1094,16 @@ class _EkAdBannerState extends State<EkAdBanner> {
                           ),
                         ),
                       ),
-                      // Fermeture manuelle : l'utilisateur garde le contrôle.
+                      // Fermeture manuelle : l'utilisateur garde le contrôle
+                      // (la bannière reviendra après la pause, comme partout).
                       Positioned(
                         top: 4,
                         right: 6,
                         child: GestureDetector(
-                          onTap: () => setState(() => _visible = false),
+                          onTap: () {
+                            _hideTimer?.cancel();
+                            _hideThenReschedule();
+                          },
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(

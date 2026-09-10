@@ -728,71 +728,19 @@ class _DangerSection extends StatelessWidget {
       );
     }
 
-    // Libelles lateraux de part et d'autre du bouton (cf. maquette).
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // FittedBox : le texte se reduit au besoin, jamais de retour
-              // a la ligne (pas de mot casse).
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'APPUYEZ',
-                  maxLines: 1,
-                  style: Ek.over(size: 9.5, color: Ek.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'LONGUEMENT',
-                  maxLines: 1,
-                  style: Ek.over(size: 9.5, color: Ek.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Icon(
-                Icons.arrow_forward,
-                size: 13,
-                color: Ek.danger,
-              ),
-            ],
+    // Une seule phrase discrète, en minuscules, AU-DESSUS du bouton.
+    return Center(
+      child: Column(
+        children: [
+          Text(
+            'Appuyez longuement pour signaler une situation critique.',
+            textAlign: TextAlign.center,
+            style: Ek.body(size: 12, color: Ek.textSecondary),
           ),
-        ),
-        const SizedBox(width: 10),
-        _DangerButton(active: active),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'POUR SIGNALER',
-                  maxLines: 1,
-                  style: Ek.over(size: 9.5, color: Ek.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'UNE SITUATION CRITIQUE',
-                  maxLines: 1,
-                  style: Ek.over(size: 9.5, color: Ek.danger),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Icon(Icons.arrow_back, size: 13, color: Ek.danger),
-            ],
-          ),
-        ),
-      ],
+          const SizedBox(height: 14),
+          _DangerButton(active: active),
+        ],
+      ),
     );
   }
 }
