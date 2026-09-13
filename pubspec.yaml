@@ -1,7 +1,7 @@
 name: ekenge_plus
 description: "EKENGE PLUS - Application mobile de securite et de partage de localisation en temps reel."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.9.2
