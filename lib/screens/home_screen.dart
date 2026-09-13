@@ -27,6 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // en bandeau au-dessus de la carte.
   bool _safeDialogOpen = false;
   BuildContext? _safeDialogCtx;
+  // Les alertes actives (niveau 1, niveau 2, danger) s'affichent AUSSI en
+  // pop-up : jamais au-dessus de la carte. Un seul pop-up réactif : quand
+  // l'alerte escalade (niveau 1 -> niveau 2), son contenu se met à jour et
+  // remplace le précédent automatiquement.
+  bool _alertDialogOpen = false;
+  BuildContext? _alertDialogCtx;
   EkState? _st;
 
   @override
@@ -75,13 +81,37 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.of(dCtx).pop();
       }
     }
+
+    // ---- Pop-up d'alerte active (niveau 1 / niveau 2 / danger) ----
+    // Le contenu du dialog observe EkState : si l'alerte escalade du
+    // niveau 1 au niveau 2, le MEME pop-up se met à jour (remplacement
+    // instantané, pas de superposition).
+    final showAlert = st.activeAlert != null;
+    if (showAlert && !_alertDialogOpen) {
+      _alertDialogOpen = true;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder: (dCtx) {
+          _alertDialogCtx = dCtx;
+          return const _AlertPopup();
+        },
+      ).then((_) {
+        _alertDialogOpen = false;
+        _alertDialogCtx = null;
+      });
+    } else if (!showAlert && _alertDialogOpen) {
+      // Alerte terminee (« Je suis en sécurité ») : fermeture auto.
+      final dCtx = _alertDialogCtx;
+      if (dCtx != null && dCtx.mounted) {
+        Navigator.of(dCtx).pop();
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final st = context.watch<EkState>();
-    final alert = st.activeAlert;
-
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -92,15 +122,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                 children: [
-                  // ---- Bandeau d'alerte active (§7 / §9) ----
-                  if (alert != null) ...[
-                    _AlertBanner(alert: alert),
-                    const SizedBox(height: 16),
-                  ],
-
                   // ---- Carte interactive (§6) ----
-                  // (La verification Safe s'affiche en POP-UP, plus en
-                  // bandeau au-dessus de la carte.)
+                  // (La verification Safe ET les alertes actives s'affichent
+                  // en POP-UP : rien ne s'affiche au-dessus de la carte.)
                   _MapSection(),
                   const SizedBox(height: 16),
 
@@ -176,15 +200,19 @@ class _TopBar extends StatelessWidget {
 }
 
 // =========================================================================
-// §7 / §9 Bandeau d'alerte active
+// §7 / §9 Pop-up d'alerte active (dialog bloquant, plus de bandeau)
+// Contenu réactif : l'escalade niveau 1 -> niveau 2 met à jour le même
+// pop-up (le niveau 2 remplace le niveau 1 instantanément).
 // =========================================================================
-class _AlertBanner extends StatelessWidget {
-  final ActiveAlert alert;
-  const _AlertBanner({required this.alert});
+class _AlertPopup extends StatelessWidget {
+  const _AlertPopup();
 
   @override
   Widget build(BuildContext context) {
     final st = context.watch<EkState>();
+    final alert = st.activeAlert;
+    // Pendant la frame de fermeture (alerte levée), rien à afficher.
+    if (alert == null) return const SizedBox.shrink();
     final (label, color, desc) = switch (alert.kind) {
       AlertKind.danger => (
         'ALERTE DANGER ACTIVE',
@@ -208,57 +236,82 @@ class _AlertBanner extends StatelessWidget {
 
     final l2 = st.level2Countdown;
 
-    return EkCard(
-      color: color.withValues(alpha: 0.07),
-      border: color.withValues(alpha: 0.4),
-      shadow: Ek.glow(color, o: 0.12, b: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    // PopScope : le retour systeme ne ferme pas le pop-up ; l'alerte reste
+    // affichee tant que la securite n'est pas confirmee.
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Ek.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.warning_amber_rounded, size: 19, color: color),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(label, style: Ek.over(size: 10.5, color: color)),
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color.withValues(alpha: 0.12),
+                      border: Border.all(color: color.withValues(alpha: 0.4)),
+                    ),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      size: 18,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: Ek.over(size: 10.5, color: color),
+                    ),
+                  ),
+                  Text(
+                    'depuis ${ekRelative(alert.startedAt)}',
+                    style: Ek.over(size: 8.5),
+                  ),
+                ],
               ),
-              Text(
-                'depuis ${ekRelative(alert.startedAt)}',
-                style: Ek.over(size: 8.5),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(desc, style: Ek.body(size: 12.5, height: 1.5)),
-          if (l2 != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.timer_outlined, size: 14, color: Ek.warn),
-                const SizedBox(width: 8),
-                Text(
-                  'Escalade Niveau 2 dans ${ekFormatDuration(l2)}',
-                  style: Ek.body(size: 12, color: Ek.warn),
+              const SizedBox(height: 14),
+              Text(desc, style: Ek.body(size: 12.5, height: 1.5)),
+              if (l2 != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.timer_outlined, size: 14, color: Ek.warn),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Escalade Niveau 2 dans ${ekFormatDuration(l2)}',
+                      style: Ek.body(size: 12, color: Ek.warn),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
-          const SizedBox(height: 16),
-          _SafeConfirmButton(),
-          if (alert.kind == AlertKind.danger) ...[
-            const SizedBox(height: 10),
-            // §7 : lien partageable sur WhatsApp pour permettre a des
-            // personnes hors liste Tracking de suivre le deplacement,
-            // meme sans compte EKENGE.
-            EkButton(
-              label: 'Partager le lien de suivi sur WhatsApp',
-              icon: Icons.share_outlined,
-              outlined: true,
-              color: color,
-              onPressed: () => _shareTrackingLink(context, st),
-            ),
-          ],
-        ],
+              const SizedBox(height: 18),
+              _SafeConfirmButton(),
+              if (alert.kind == AlertKind.danger) ...[
+                const SizedBox(height: 10),
+                // §7 : lien partageable sur WhatsApp pour permettre a des
+                // personnes hors liste Tracking de suivre le deplacement,
+                // meme sans compte EKENGE.
+                EkButton(
+                  label: 'Partager le lien de suivi sur WhatsApp',
+                  icon: Icons.share_outlined,
+                  outlined: true,
+                  color: color,
+                  onPressed: () => _shareTrackingLink(context, st),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
