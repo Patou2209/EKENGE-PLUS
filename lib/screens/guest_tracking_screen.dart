@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -284,7 +286,10 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
     // l'utilisateur est guide — aucune position simulee n'est partagee.
     final ok = await ekEnsureLocationReady(context);
     if (!ok || !mounted) return;
-    loc.start();
+    // ORDRE IMPORTANT : on s'abonne AU FLUX AVANT de demarrer le GPS,
+    // sinon la premiere emission (position immediate) est perdue et le
+    // lien de suivi affiche « localisation non disponible » jusqu'au
+    // premier deplacement.
     await _sub?.cancel();
     _sub = loc.stream.listen((p) {
       if (!mounted) return;
@@ -304,12 +309,61 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
       // Position temps reel publiee pour le lien de suivi.
       FirebaseBackend.instance.pushGuestPosition(_trackingToken, p);
     });
+    loc.start();
     if (!mounted) return;
     setState(() {
       _sharing = true;
       _startedAt ??= DateTime.now();
+      _position ??= loc.current;
     });
+    // Publication IMMEDIATE de la position courante : le lien de suivi
+    // affiche une position des l'ouverture, sans attendre le premier
+    // point du flux GPS.
+    unawaited(
+      FirebaseBackend.instance.pushGuestPosition(_trackingToken, loc.current),
+    );
     await _saveSession();
+  }
+
+  /// Ouvre la carte web de suivi dans le navigateur (lien cliquable).
+  Future<void> _openTrackingLink() async {
+    Haptics.tap();
+    try {
+      final ok = await launchUrl(
+        Uri.parse(_trackingLink),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok) await _copyTrackingLink();
+    } catch (_) {
+      await _copyTrackingLink();
+    }
+  }
+
+  /// Copie le lien de suivi dans le presse-papiers.
+  Future<void> _copyTrackingLink() async {
+    Haptics.tap();
+    await Clipboard.setData(ClipboardData(text: _trackingLink));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Lien de suivi copié.', style: Ek.body(size: 13)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Partage le lien via la feuille de partage du systeme (WhatsApp, SMS…).
+  Future<void> _shareTrackingLink() async {
+    Haptics.tap();
+    try {
+      await Share.share(
+        '$_guestName partage sa localisation en temps réel avec vous. '
+        'Suivez sa position ici (aucun compte requis) : $_trackingLink',
+        subject: 'Lien de suivi EKENGE PLUS',
+      );
+    } catch (_) {
+      await _copyTrackingLink();
+    }
   }
 
   /// Met le partage en pause : les suiveurs restent, la session persiste,
@@ -1144,9 +1198,75 @@ class _GuestTrackingScreenState extends State<GuestTrackingScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      'Lien de suivi : $_trackingLink',
-                      style: Ek.body(size: 12, color: Ek.textSecondary),
+                    // Lien de suivi : CLIQUABLE (ouvre la carte web),
+                    // COPIABLE (appui long) et PARTAGEABLE (icône à droite).
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: _openTrackingLink,
+                            onLongPress: _copyTrackingLink,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Ek.accent.withValues(alpha: 0.07),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Ek.accent.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'LIEN DE SUIVI',
+                                    style: Ek.over(
+                                      size: 8,
+                                      color: Ek.accentDim,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    _trackingLink,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Ek.body(
+                                      size: 12,
+                                      color: Ek.accentDim,
+                                    ).copyWith(
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Ek.accentDim,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          tooltip: 'Copier le lien',
+                          onPressed: _copyTrackingLink,
+                          icon: const Icon(
+                            Icons.copy_rounded,
+                            size: 18,
+                            color: Ek.textSecondary,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Partager le lien',
+                          onPressed: _shareTrackingLink,
+                          icon: const Icon(
+                            Icons.share_outlined,
+                            size: 19,
+                            color: Ek.accentDim,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

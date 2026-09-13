@@ -104,25 +104,46 @@ class LocationService {
       }
       _realGps = true;
       _permissionGranted = true;
-      // 3. Position initiale immédiate pour centrer la carte.
+      // 3. REACTIVITE DU BOUTON : la derniere position connue est
+      //    instantanee -> le partage demarre sans attendre le fix GPS.
+      //    (C'est l'attente bloquante de getCurrentPosition, jusqu'a 15 s,
+      //    qui donnait l'impression que le switch ne repondait pas.)
+      geo.Position? last;
+      try {
+        last = await geo.Geolocator.getLastKnownPosition();
+      } catch (_) {}
+      if (last != null) {
+        _lat = last.latitude;
+        _lng = last.longitude;
+        // Fix frais recupere en ARRIERE-PLAN : des qu'il arrive, la
+        // position est corrigee et retransmise (carte + Firestore).
+        unawaited(
+          geo.Geolocator.getCurrentPosition(
+            locationSettings: const geo.LocationSettings(
+              accuracy: geo.LocationAccuracy.high,
+            ),
+          )
+              .timeout(const Duration(seconds: 12))
+              .then((p) {
+                _lat = p.latitude;
+                _lng = p.longitude;
+                if (_running && _realGps) _ctrl.add(current);
+              })
+              .catchError((_) {}),
+        );
+        return LocationReadiness.ready;
+      }
+      // Aucune position connue (tout premier usage) : une seule
+      // acquisition, avec un delai raisonnable.
       try {
         final p = await geo.Geolocator.getCurrentPosition(
           locationSettings: const geo.LocationSettings(
             accuracy: geo.LocationAccuracy.high,
           ),
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 10));
         _lat = p.latitude;
         _lng = p.longitude;
-      } catch (_) {
-        // Dernière position connue en attendant le premier point GPS.
-        try {
-          final last = await geo.Geolocator.getLastKnownPosition();
-          if (last != null) {
-            _lat = last.latitude;
-            _lng = last.longitude;
-          }
-        } catch (_) {}
-      }
+      } catch (_) {}
       return LocationReadiness.ready;
     } catch (e) {
       if (kDebugMode) debugPrint('[Location] ensureReady: $e');
@@ -157,9 +178,13 @@ class LocationService {
         locationSettings: _settings(),
       ).listen(
         (p) {
-          // 1. Ignorer les releves de mauvaise precision (bruit GPS) :
-          //    un point incertain a plus de 30 m ferait « sauter » la carte.
-          if (p.accuracy > 30) return;
+          // 1. Filtre de precision PROGRESSIF : le tout premier fix est
+          //    TOUJOURS accepte (jusqu'a 100 m) pour que la position soit
+          //    immediatement publiee sur le lien de suivi — c'est le rejet
+          //    systematique (> 30 m) qui laissait le lien afficher
+          //    « localisation non disponible ». Les fix suivants affinent.
+          final limit = hasFix ? 35.0 : 100.0;
+          if (p.accuracy > limit) return;
           // 2. Filtre de deplacement REEL : la position (et le trajet) ne
           //    se mettent a jour qu'apres un deplacement d'au moins 5 m.
           //    Le telephone qui bouge sur place (jitter) est ignore.

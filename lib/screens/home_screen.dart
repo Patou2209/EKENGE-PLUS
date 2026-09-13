@@ -1052,13 +1052,60 @@ class _DangerButtonState extends State<_DangerButton>
 // =========================================================================
 // §6 Carte Tracking
 // =========================================================================
-class _TrackingCard extends StatelessWidget {
+class _TrackingCard extends StatefulWidget {
   const _TrackingCard();
+
+  @override
+  State<_TrackingCard> createState() => _TrackingCardState();
+}
+
+class _TrackingCardState extends State<_TrackingCard> {
+  // Anti double-bascule : pendant la verification GPS, le switch est
+  // verrouille et affiche l'etat DEMANDE (retour visuel immediat). C'est
+  // l'absence de ce verrou qui obligeait a basculer plusieurs fois.
+  bool _busy = false;
+  bool? _pendingValue;
+
+  Future<void> _toggle(BuildContext context, EkState st, bool v) async {
+    if (_busy) return;
+    if (v && st.trackingList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucun contact dans la liste Tracking.'),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _pendingValue = v; // le switch bouge TOUT DE SUITE
+    });
+    try {
+      if (v) {
+        // Verification stricte : GPS active + permission, sinon guide
+        // l'utilisateur (aucune position simulee). verified: true =>
+        // pas de 2e acquisition GPS dans startTracking.
+        final ok = await ekEnsureLocationReady(context);
+        if (ok && context.mounted) {
+          await st.startTracking(verified: true);
+        }
+      } else {
+        await st.stopTracking();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _pendingValue = null;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final st = context.watch<EkState>();
-    final on = st.trackingActive;
+    final on = _pendingValue ?? st.trackingActive;
     final elapsed = st.trackingElapsed;
 
     return EkCard(
@@ -1108,31 +1155,21 @@ class _TrackingCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (_busy)
+                const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Ek.accentDim,
+                    ),
+                  ),
+                ),
               Switch(
                 value: on,
-                onChanged: (v) async {
-                  if (v) {
-                    if (st.trackingList.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Aucun contact dans la liste Tracking.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    // Verification stricte : GPS active + permission,
-                    // sinon guide l'utilisateur (aucune position simulee).
-                    // verified: true => pas de 2e acquisition GPS dans
-                    // startTracking (supprime le retard du bouton).
-                    final ok = await ekEnsureLocationReady(context);
-                    if (!ok || !context.mounted) return;
-                    await st.startTracking(verified: true);
-                  } else {
-                    await st.stopTracking();
-                  }
-                },
+                onChanged: _busy ? null : (v) => _toggle(context, st, v),
               ),
             ],
           ),

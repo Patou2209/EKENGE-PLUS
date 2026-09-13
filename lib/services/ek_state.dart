@@ -962,6 +962,11 @@ class EkState extends ChangeNotifier {
     trail.clear();
     LocationService.instance.start();
     position = LocationService.instance.current;
+    // Publication IMMEDIATE : les proches (et le lien de suivi web) voient
+    // la position des l'activation, sans attendre le premier point GPS.
+    if (user != null && position != null) {
+      unawaited(_fb.pushPosition(user!.phone, position!));
+    }
 
     _scheduleSafeCheck();
     _startClock();
